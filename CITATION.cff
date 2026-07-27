@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+title: HerbivoR
+message: If you use this software, please cite it as below.
+type: software
+authors:
+  - family-names: Sandoval
+    given-names: Mario
+    # orcid: https://orcid.org/0000-0000-0000-0000
+repository-code: https://github.com/mariosandovalmx/HerbivoR
+url: https://huggingface.co/mariosandovalmx/HerbivoR
+license: MIT
+version: 1.0.0
+date-released: 2026-07-27
+abstract: >
+  HerbivoR is a desktop GUI for leaf herbivory quantification from photographs,
+  combining BiRefNet + MobileSAM segmentation, UNET Shape contour reconstruction,
+  and a damage U-Net with interactive editing tools.
+keywords:
+  - herbivory
+  - leaf damage
+  - computer vision
+  - deep learning
+  - plant ecology

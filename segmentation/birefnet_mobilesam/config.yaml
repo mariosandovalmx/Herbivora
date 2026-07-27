@@ -1,0 +1,34 @@
+# BiRefNet_lite + MobileSAM leaf segmentation config
+
+# ---- Resolution ----
+output_size: 768
+resize_before_segmentation: false   # Strategy A: measure at original res
+segmentation_resolution: 1024       # inference resolution for BiRefNet / MobileSAM
+
+# ---- Blue circle reference ----
+circle:
+  known_diameter_mm: 6.0             # = 0.6 cm physical diameter of the reference dot
+  hsv_lower: [100, 80, 40]
+  hsv_upper: [130, 255, 255]
+  min_circularity: 0.65             # lowered from 0.80 — allows slightly oval dots
+  min_area_px: 50                   # lowered from 100 — catches smaller dots
+  required: false                   # continue without calibration if not found
+  min_confidence_score: 0.45        # below this, circle.low_confidence=true (GUI can prompt for manual correction)
+
+# ---- Leaf selection ----
+leaf:
+  min_area_px: 5000
+  fill_internal_holes: true
+  exclude_blue_region: true
+  box_prior_margin_frac: 0.25       # only used with --box-prior-dir (method D): margin
+                                     # around the detector box that segmentation may not leak past
+
+# ---- Hybrid model strategy ----
+hybrid:
+  mode: "birefnet_primary"
+  agreement_threshold: 0.85
+
+# ---- Output ----
+background_color: [255, 255, 255]
+save_debug_overlays: true
+save_circle_crop: true

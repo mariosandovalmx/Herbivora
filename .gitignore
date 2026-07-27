@@ -1,0 +1,97 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer / test / coverage
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE / agent
+.idea/
+.vscode/
+.claude/
+.cursor/
+.cursorignore
+.cursorindexingignore
+.abstra/
+
+# OS
+.DS_Store
+Thumbs.db
+~$*.xlsx
+*.xlsx
+*.pdf
+
+# HerbivoR runtime / local data
+gui_error.log
+*.log
+output/
+analyzed/
+test_images/
+test_images2/
+datasets_training/
+leaf_unet_dataset/
+leaf_reconstruction/
+Leaves/
+backup_snapshot_*/
+
+# Model weights (download via download_models.py)
+models/*.pt
+models/*.pth
+!models/README.md
+
+# Hugging Face / Ultralytics caches
+hf_cache/
+**/hf_cache/
+**/.cache/
+
+# Pipeline outputs under user folders (patterns)
+**/segmentation/white_bg/
+**/segmentation/masks/
+**/leaf_roi_preview/
+**/.temp_fastsam/

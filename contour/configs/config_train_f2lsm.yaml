@@ -1,0 +1,35 @@
+# UNET Contour — F2LSM Training Configuration
+# Mask-to-Mask Shape Completion (512x512)
+
+data:
+  dataset_dir: "D:/Herbivory_software/unet2/datasets_training/f2lsm_train_leavesdataset"
+  damaged_masks_subdir: "unet_damaged_masks"   # generado por prepare_unet_dataset.py
+  clean_masks_subdir:   "seg_masks"            # máscaras intactas (Ground Truth)
+  val_split: 0.10                              # 10% de hojas para validación
+  image_size: 512                              # resolución de entrenamiento (px)
+
+model:
+  encoder: "resnet34"           # backbone para el UNet
+  in_channels: 1                # máscaras 1-canal (blanco/negro)
+  out_channels: 1               # predicción binaria de silueta
+
+training:
+  epochs: 80                       # ~1840 steps/epoch con 29k train; suficiente para IoU >0.97
+  batch_size: 16
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  early_stop_patience: 15           # detiene si val_iou no mejora en 15 epocas (~25-50 suele bastar)
+  amp: true                    # Automatic Mixed Precision (fp16 en GPU)
+  compile: false               # torch.compile() (PyTorch 2.0+)
+  num_workers: 4               # workers del DataLoader
+
+inference:
+  threshold: 0.5              # sigmoid cutoff for binary mask
+  white_thresh: 240            # leaf extraction from white_bg crops
+  refine: true                 # morphology-aware bridge for serrated/lobed leaves
+  bridge_max_growth: 0.08      # max area growth for exterior gap bridging
+
+paths:
+  models_dir:  "models"
+  save_best:   "models/best_unet_shape.pth"
+  save_last:   "models/last_unet_shape_ckpt.pth"

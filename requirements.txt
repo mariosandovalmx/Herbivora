@@ -1,0 +1,17 @@
+opencv-python
+numpy>=2.0.0
+Pillow
+pillow-heif>=0.16.0
+scipy
+tqdm>=4.65.0
+pyyaml
+torch
+torchvision
+segmentation-models-pytorch
+timm
+transformers
+huggingface_hub
+einops
+kornia
+ultralytics
+customtkinter>=5.2.0
