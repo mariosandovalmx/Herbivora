@@ -31,7 +31,12 @@ def _birefnet_is_cached() -> bool:
 # --------------------------------------------------------------------------- #
 
 def get_device() -> torch.device:
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    mps = getattr(torch.backends, "mps", None)
+    if mps is not None and mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 
 # --------------------------------------------------------------------------- #

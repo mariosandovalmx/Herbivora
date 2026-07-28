@@ -708,16 +708,14 @@ class ProjectTab(ctk.CTkFrame):
             "cv2": "OpenCV (opencv-python)",
             "ultralytics": "Ultralytics (ultralytics)",
             "customtkinter": "CustomTkinter (customtkinter)",
-            "matplotlib": "Matplotlib (matplotlib)",
             "numpy": "NumPy (numpy)",
             "PIL": "Pillow (Pillow)",
             "scipy": "SciPy (scipy)",
-            "sklearn": "Scikit-Learn (scikit-learn)",
             "segmentation_models_pytorch": "Segmentation Models PyTorch (segmentation-models-pytorch)",
-            "pycocotools": "COCO Tools (pycocotools)",
             "tqdm": "Progress Bar (tqdm)",
-            "fire": "CLI Fire (fire)",
             "huggingface_hub": "Hugging Face Hub (huggingface_hub)",
+            "yaml": "PyYAML (pyyaml)",
+            "transformers": "Transformers (transformers)",
         }
 
         for mod, label in modules_to_check.items():
@@ -729,6 +727,9 @@ class ProjectTab(ctk.CTkFrame):
                     lines.append(f"CUDA available: {torch.cuda.is_available()}")
                     if torch.cuda.is_available():
                         lines.append(f"GPU: {torch.cuda.get_device_name(0)}")
+                    mps = getattr(torch.backends, "mps", None)
+                    if mps is not None and mps.is_available():
+                        lines.append("Apple MPS (Metal): available")
                 else:
                     lines.append(f"{label}: OK")
             except ImportError:
@@ -748,7 +749,25 @@ class ProjectTab(ctk.CTkFrame):
             if ans:
                 import subprocess
                 try:
-                    cmd = [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]
+                    cmd = [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "-r",
+                        str(REPO_ROOT / "requirements.txt"),
+                    ]
+                    # Do not install torch here — CPU/CUDA wheels come from Install_*.bat / install.sh
+                    need_torch = any("PyTorch" in m or "Torchvision" in m for m in missing)
+                    if need_torch:
+                        messagebox.showinfo(
+                            "Install PyTorch first",
+                            "PyTorch is missing. Close this dialog and run:\n\n"
+                            "  Windows: Install_CPU.bat  or  Install_CUDA.bat\n"
+                            "  macOS/Linux: ./install.sh\n\n"
+                            "Those scripts install the correct Torch wheel, then the other packages.",
+                        )
+                        return
                     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
                     if proc.returncode == 0:
                         messagebox.showinfo(
@@ -776,12 +795,12 @@ class ProjectTab(ctk.CTkFrame):
                 "Manual Installation Instructions",
                 "To run HerbivoR correctly, you must install the missing libraries.\n"
                 "You can do this by executing one of the following options:\n\n"
-                "Option A (Recommended):\n"
-                "Run install.bat (Windows) or install.sh (macOS/Linux) in the HerbivoR folder.\n\n"
-                "Option B (Command Line):\n"
-                "Open a terminal in the project directory, activate your virtual environment, and run:\n"
-                "  pip install -r requirements.txt\n"
-                "  python download_models.py"
+                    "Option A (Recommended):\n"
+                    "Run Install_CPU.bat or Install_CUDA.bat (Windows), or ./install.sh (macOS/Linux).\n\n"
+                    "Option B (Command Line):\n"
+                    "See INSTALL.md — install torch/torchvision from pytorch.org first, then:\n"
+                    "  pip install -r requirements.txt\n"
+                    "  python download_models.py"
             )
             return
 

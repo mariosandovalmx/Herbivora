@@ -14,12 +14,19 @@ Pipeline:
 
 ## Quick start
 
-| Platform | Install | Run |
-|----------|---------|-----|
-| Windows | Double-click `Install.bat` | Double-click `HerbivoR.bat` |
-| macOS / Linux | `chmod +x install.sh herbivor.sh && ./install.sh` | `./herbivor.sh` |
+1. Download **Source code** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases) (or clone).
+2. Install (creates `.venv`, installs PyTorch + deps, downloads models):
 
-Full step-by-step instructions: **[INSTALL.md](INSTALL.md)** (includes **testing on another PC** with a packaged `.exe` and **how to cut a Release**).
+| Platform | Install |
+|----------|---------|
+| Windows CPU | Double-click **`Install_CPU.bat`** |
+| Windows NVIDIA GPU | Double-click **`Install_CUDA.bat`** |
+| Windows (menu) | Double-click **`Install.bat`** |
+| macOS / Linux | `chmod +x install.sh herbivor.sh && ./install.sh` |
+
+3. Run: **`HerbivoR.bat`** (Windows) or **`./herbivor.sh`** (macOS / Linux).
+
+Full guide: **[INSTALL.md](INSTALL.md)**.
 
 ---
 
@@ -27,12 +34,12 @@ Full step-by-step instructions: **[INSTALL.md](INSTALL.md)** (includes **testing
 
 - Python **3.10+** (3.11–3.13 recommended)
 - ~3 GB disk for the virtualenv + model weights
-- Optional: NVIDIA GPU with CUDA for faster inference
+- Optional: NVIDIA GPU (use `Install_CUDA.bat` / CUDA on Linux). On Mac, Metal (MPS) is used automatically when available.
 
-Model weights (~226 MB) are **not** in this repository. They download automatically during install (or via **Check installation** in the GUI):
+Model weights (~226 MB) are **not** in this repository. Installers (or **Check installation** in the GUI) download them from:
 
-- HerbivoR U-Nets from [`mariosandovalmx/HerbivoR`](https://huggingface.co/mariosandovalmx/HerbivoR)
-- MobileSAM from [Ultralytics assets](https://github.com/ultralytics/assets/releases) (third-party, Apache-2.0)
+- HerbivoR U-Nets: [`mariosandovalmx/HerbivoR`](https://huggingface.co/mariosandovalmx/HerbivoR)
+- MobileSAM: [Ultralytics assets](https://github.com/ultralytics/assets/releases) (third-party, Apache-2.0)
 
 ---
 
@@ -44,11 +51,10 @@ HerbivoR/
 ├── segmentation/        # BiRefNet + MobileSAM, Intact Leaves, whitebg helpers
 ├── contour/             # UNET Shape contour inference
 ├── leaf_contour/        # Shared mask post-processing
-├── packaging/           # PyInstaller scripts (Windows / macOS test builds)
+├── packaging/           # Optional PyInstaller (maintainers only; not in Releases)
 ├── models/              # Weights (downloaded; git-ignored)
-├── analyze_leaves.py    # Damage analysis CLI used by the GUI
-├── download_models.py   # Fetch weights from Hugging Face
-├── Install.bat / install.sh
+├── Install_CPU.bat / Install_CUDA.bat / Install.bat
+├── install.sh
 └── HerbivoR.bat / herbivor.sh
 ```
 
@@ -56,10 +62,10 @@ HerbivoR/
 
 ## Typical workflow
 
-1. **Project** — choose input and output folders; confirm the three models are detected
-2. **Segmentation** — run BiRefNet + MobileSAM (recommended)
-3. **Contour / ROI** — run UNET Shape; optionally **Edit Contour**
-4. **Analysis** — run U-Net damage analysis; optionally **Edit Damage**
+1. **Project** — choose input and output folders; **Check installation**
+2. **Segmentation** — BiRefNet + MobileSAM (recommended)
+3. **Contour / ROI** — UNET Shape; optionally **Edit Contour**
+4. **Analysis** — damage U-Net; optionally **Edit Damage**
 
 Results appear under `{output}/analyzed/` (`results.csv` + overlay images).
 

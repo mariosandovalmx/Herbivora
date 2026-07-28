@@ -5,6 +5,21 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-07-28
+
+### Added
+- `Install_CPU.bat` and `Install_CUDA.bat` (CUDA 12.4 wheels) for Windows.
+- `Install.bat` menu to choose CPU vs CUDA.
+- `install.sh` installs Torch for macOS (CPU + Metal/MPS) or Linux (CUDA if NVIDIA detected, else CPU).
+
+### Changed
+- `requirements.txt` no longer pins `torch`/`torchvision` (installers choose the wheel).
+- GitHub Releases ship **source only** (no multi-GB PyInstaller assets).
+- **Check installation** only probes packages actually used by the GUI; directs users to installers if Torch is missing.
+
+### Deprecated
+- Packaged `.exe` / split ZIP assets from v1.0.1 — use source + installers instead. `packaging/` remains for optional maintainer builds only.
+
 ## [1.0.1] — 2026-07-28
 
 ### Added

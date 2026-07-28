@@ -2,22 +2,25 @@
 
 Step-by-step setup for **Windows**, **macOS**, and **Linux**.
 
+Releases contain **source code only** (small ZIP). Python packages and model weights are installed on your machine by the scripts below — there is no giant bundled `.exe` in the Release.
+
 ---
 
 ## 1. Prerequisites
 
 1. Install **Python 3.10 or newer** ([python.org](https://www.python.org/downloads/)).
    - On Windows, check **“Add python.exe to PATH”** during setup.
-2. (Optional) NVIDIA drivers + CUDA if you want GPU acceleration.
-3. A free [Hugging Face](https://huggingface.co/) account is **not** required to download public models, but you will need one if you publish private weights.
+2. (Optional, Windows/Linux GPU) Recent **NVIDIA drivers** if you will use `Install_CUDA.bat` / CUDA on Linux.
+3. A free [Hugging Face](https://huggingface.co/) account is **not** required to download public models.
 
 ---
 
 ## 2. Get the source code
 
-Clone or download this repository and open a terminal in the project folder:
+Download **Source code (zip)** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases), or clone:
 
 ```bash
+git clone https://github.com/mariosandovalmx/HerbivoR.git
 cd HerbivoR
 ```
 
@@ -25,14 +28,20 @@ cd HerbivoR
 
 ## 3. Install dependencies and models
 
-### Windows
+### Windows (pick one)
 
-1. Double-click **`Install.bat`**
-2. Wait until you see `Installation completed`
-3. Confirm these files exist under `models/`:
-   - `mobile_sam.pt`
-   - `best_unet_shape.pth`
-   - `best_model.pth`
+| Installer | When to use |
+|-----------|-------------|
+| **`Install_CPU.bat`** | No NVIDIA GPU, or you are unsure (recommended default) |
+| **`Install_CUDA.bat`** | NVIDIA GPU + recent drivers (PyTorch **CUDA 12.4** wheels) |
+| **`Install.bat`** | Menu to choose CPU or CUDA |
+
+Double-click the installer and wait for `Installation completed`. It will:
+
+1. Create `.venv`
+2. Install the matching PyTorch wheel
+3. Install packages from `requirements.txt`
+4. Download models into `models/` (~226 MB)
 
 ### macOS / Linux
 
@@ -41,19 +50,28 @@ chmod +x install.sh herbivor.sh
 ./install.sh
 ```
 
+- **macOS:** one installer — PyTorch includes **Metal (MPS)**; the app uses it automatically when available.
+- **Linux:** CUDA 12.4 wheels if `nvidia-smi` works; otherwise CPU.
+
 ### Manual install (any OS)
 
 ```bash
 python -m venv .venv
 
-# Windows
-.venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python download_models.py
+# 1) PyTorch first — pick ONE (see https://pytorch.org)
+# CPU:
+.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# CUDA 12.4:
+# .venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# macOS (default wheels, MPS-capable):
+# .venv/bin/pip install torch torchvision
 
-# macOS / Linux
+# 2) App packages (does not include torch)
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python download_models.py
 ```
+
+On Windows use `.venv\Scripts\` instead of `.venv/bin/`.
 
 ---
 
@@ -72,51 +90,17 @@ If the window does not open on Windows, check `gui_error.log` in the project fol
 ## 5. First analysis (recommended path)
 
 1. **Project tab**
-   - Set **Input folder** (photos of leaves / scenes)
-   - Set **Output folder**
-   - Click **Check installation** — verifies dependencies and downloads any missing models into `models/` (MobileSAM + HerbivoR U-Nets). All three should show **OK**.
-2. **Segmentation tab**
-   - Method: **A. BiRefNet + MobileSAM [RECOMMENDED]**
-   - Click **Run segmentation**
-3. **Contour / ROI tab**
-   - Click **Run contour**
-   - Optionally **Edit Contour** (Add / Remove / Line / Polygon)
-4. **Analysis tab**
-   - Click **Run U-Net analysis**
-   - Optionally **Edit Damage**
-5. Open `{output}/analyzed/results.csv` and the `*_analyzed.jpg` overlays
+   - Set **Input folder** and **Output folder**
+   - Click **Check installation** — verifies packages and downloads any missing models. All three models should show **OK**.
+2. **Segmentation** → **Contour / ROI** → **Analysis** as usual.
+3. Open `{output}/analyzed/results.csv` and the `*_analyzed.jpg` overlays.
 
 ---
 
 ## 6. Publishing model weights on Hugging Face (maintainers)
 
-The installers call `download_models.py`, which:
-
-- downloads **your** U-Nets from Hugging Face:
-
-```
-https://huggingface.co/mariosandovalmx/HerbivoR
-```
-
-| File | Role |
-|------|------|
-| `best_unet_shape.pth` | Contour U-Net |
-| `best_model.pth` | Damage U-Net |
-
-- downloads **MobileSAM** separately from Ultralytics assets (do **not** re-upload it to HerbivoR).
-
-### Upload steps (HerbivoR U-Nets only)
-
-```bash
-pip install -U huggingface_hub
-hf auth login
-hf repo create HerbivoR --repo-type model --public   # once; license is set in the model card
-hf upload mariosandovalmx/HerbivoR ./models/best_unet_shape.pth best_unet_shape.pth
-hf upload mariosandovalmx/HerbivoR ./models/best_model.pth best_model.pth
-hf upload mariosandovalmx/HerbivoR ./hf_model_card/README.md README.md
-```
-
-Replace `mariosandovalmx` with your Hugging Face username if different, and update `DEFAULT_REPO` in `download_models.py` accordingly.
+See previous docs / `download_models.py`. Hub repo: https://huggingface.co/mariosandovalmx/HerbivoR  
+(`best_unet_shape.pth`, `best_model.pth`; MobileSAM from Ultralytics, not re-hosted).
 
 ---
 
@@ -124,11 +108,11 @@ Replace `mariosandovalmx` with your Hugging Face username if different, and upda
 
 | Problem | Fix |
 |---------|-----|
-| `Python 3 not found` | Reinstall Python with PATH enabled, or run from Anaconda Prompt |
-| `pip install` fails on torch | Install a CUDA/CPU wheel from [pytorch.org](https://pytorch.org) first, then re-run `pip install -r requirements.txt` |
-| Models missing | `python download_models.py` or copy the three files into `models/` |
-| GUI blank / crash | Run `.venv\Scripts\python.exe -m gui.main` in a console and read the traceback / `gui_error.log` |
-| BiRefNet download slow | First Segmentation run downloads BiRefNet_lite (~170 MB) into `segmentation/birefnet_mobilesam/models/hf_cache/` |
+| `Python 3 not found` | Reinstall Python with PATH enabled |
+| CUDA install but inference on CPU | Update NVIDIA drivers; run `check_gpu.py` |
+| `pip install` fails on torch | Use the CPU installer, or pick another CUDA version on [pytorch.org](https://pytorch.org) |
+| Models missing | `python download_models.py` or Project → Check installation |
+| GUI blank / crash | Run `.venv\Scripts\python.exe -m gui.main` and read `gui_error.log` |
 
 ---
 
@@ -141,48 +125,27 @@ Replace `mariosandovalmx` with your Hugging Face username if different, and upda
 
 ---
 
-## 9. Testing on another PC (packaged build)
+## 9. Testing on another PC
 
-For a quick try **without installing Python** on a second Windows machine:
+1. Copy the **source** ZIP from the Release (or clone) to the other PC.
+2. Install **Python 3.10+**.
+3. Run **`Install_CPU.bat`** (or CUDA / `./install.sh`).
+4. Run **`HerbivoR.bat`** / `./herbivor.sh`.
 
-1. Download **`HerbivoR-windows-vX.Y.Z.zip`** from the [GitHub Releases](https://github.com/mariosandovalmx/HerbivoR/releases) page (private repo: sign in with an account that has access), **or** copy the ZIP via USB.
-   - If the release has split parts (`.zip.001` + `.zip.002`), join them first with:
-     `copy /b HerbivoR-windows-vX.Y.Z.zip.001+HerbivoR-windows-vX.Y.Z.zip.002 HerbivoR-windows-vX.Y.Z.zip`
-     (GitHub’s per-file limit is 2 GB; the full Windows build is larger.)
-2. Extract the ZIP to a folder with write permission (e.g. `Documents\HerbivoR`).
-3. Run **`HerbivoR.exe`**.
-4. In **Project → Check installation**, let it download the three weights into `models/` next to the exe (needs internet the first time).
-5. Run a short Segmentation → Contour → Analysis smoke test.
-
-Notes:
-
-- The packaged build is large (PyTorch and deps are bundled). Model weights are **not** inside the ZIP.
-- Windows Defender may scan the new folder the first time; wait if the first launch is slow.
-- **macOS `.app`:** build on a Mac with `packaging/build_macos.sh`, then copy that ZIP the same way. A Windows PC cannot produce a Mac app.
-
-### Building the Windows ZIP (maintainers)
-
-```bat
-pip install -r requirements-dev.txt
-packaging\build_windows.bat
-```
-
-Output: `dist\HerbivoR-windows-vX.Y.Z.zip` (attach to the GitHub Release; do not commit `dist/`).
+Packaged PyInstaller `.exe` builds are **not** part of current Releases (too large; Torch belongs in the venv). Optional maintainer tooling remains under `packaging/` — see `packaging/README.md`.
 
 ---
 
 ## 10. Releasing a new version (maintainers)
 
-1. Bump [`VERSION`](VERSION) and add notes to [`CHANGELOG.md`](CHANGELOG.md).
-2. Commit and push to `main`.
-3. Tag and push:
+1. Bump `VERSION` and `CHANGELOG.md`.
+2. Commit and push `main`.
+3. Tag and create a GitHub Release (**source only** — do not attach multi-GB exe ZIPs):
 
 ```bash
-git tag v1.0.1
+git tag v1.1.0
 git push origin main --tags
+gh release create v1.1.0 --title "HerbivoR v1.1.0" --notes-file CHANGELOG.md
 ```
-
-4. Create a GitHub Release for that tag (UI or `gh release create`).
-5. Attach `HerbivoR-windows-vX.Y.Z.zip` (and macOS ZIP if built). Source code ZIP is generated automatically.
 
 Semver: **patch** = bugfixes; **minor** = features; **major** = breaking changes.

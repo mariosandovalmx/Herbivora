@@ -1,3 +1,9 @@
+# HerbivoR application dependencies (GUI + inference).
+#
+# PyTorch (torch / torchvision) is NOT listed here on purpose.
+# Install it first via Install_CPU.bat, Install_CUDA.bat, Install.bat, or install.sh
+# so the correct CPU or CUDA wheel is used. See INSTALL.md.
+
 opencv-python
 numpy>=2.0.0
 Pillow
@@ -5,8 +11,6 @@ pillow-heif>=0.16.0
 scipy
 tqdm>=4.65.0
 pyyaml
-torch
-torchvision
 segmentation-models-pytorch
 timm
 transformers
