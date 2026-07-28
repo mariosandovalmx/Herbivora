@@ -2,7 +2,7 @@
 
 **HerbivoR** is a desktop GUI for quantifying leaf herbivory damage from photographs.
 
-**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **Repo:** [github.com/mariosandovalmx/HerbivoR](https://github.com/mariosandovalmx/HerbivoR)
+**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **User guide:** [`USER_GUIDE.md`](USER_GUIDE.md) · **Repo:** [github.com/mariosandovalmx/HerbivoR](https://github.com/mariosandovalmx/HerbivoR)
 
 Pipeline:
 
@@ -12,31 +12,27 @@ Pipeline:
 
 ---
 
-## Quick start
+## Quick start (recommended)
 
-1. Download **Source code** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases) (or clone).
-2. Install (creates `.venv`, installs PyTorch + deps, downloads models):
+1. Download from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases):
+   - **Windows:** `HerbivoR-Setup-vX.Y.Z.exe` (or Source ZIP + `Install_HerbivoR.bat`)
+   - **macOS:** `HerbivoR-vX.Y.Z.dmg` (or Source ZIP + `Install_HerbivoR.command`)
+2. Run the installer and wait until it finishes (downloads PyTorch + models automatically; GPU is auto-detected on Windows/Linux).
+3. Open **HerbivoR** from the shortcut / `HerbivoR.app` / `./herbivor.sh`.
 
-| Platform | Install |
-|----------|---------|
-| Windows CPU | Double-click **`Install_CPU.bat`** |
-| Windows NVIDIA GPU | Double-click **`Install_CUDA.bat`** |
-| Windows (menu) | Double-click **`Install.bat`** |
-| macOS / Linux | `chmod +x install.sh herbivor.sh && ./install.sh` |
+**Step-by-step for every OS:** **[USER_GUIDE.md](USER_GUIDE.md)** · short reference: **[INSTALL.md](INSTALL.md)**.
 
-3. Run: **`HerbivoR.lnk`** (leaf icon; created by the installer) or **`HerbivoR.bat`**. On macOS: **`./herbivor.sh`**, or build **`HerbivoR.app`** with `./packaging/create_macos_app.sh`.
-
-Full guide: **[INSTALL.md](INSTALL.md)**.
+You do **not** need to install Python manually on Windows when using the recommended installer.
 
 ---
 
 ## Requirements
 
-- Python **3.10+** (3.11–3.13 recommended)
-- ~3 GB disk for the virtualenv + model weights
-- Optional: NVIDIA GPU (use `Install_CUDA.bat` / CUDA on Linux). On Mac, Metal (MPS) is used automatically when available.
+- ~3–6 GB free disk for the environment + weights
+- Internet for the first install
+- Optional: NVIDIA GPU (Windows/Linux). On Mac, Metal (MPS) is used automatically when available.
 
-Model weights (~226 MB) are **not** in this repository. Installers (or **Check installation** in the GUI) download them from:
+Model weights (~226 MB) are downloaded by the installer or **Check installation**:
 
 - HerbivoR U-Nets: [`mariosandovalmx/HerbivoR`](https://huggingface.co/mariosandovalmx/HerbivoR)
 - MobileSAM: [Ultralytics assets](https://github.com/ultralytics/assets/releases) (third-party, Apache-2.0)
@@ -47,15 +43,14 @@ Model weights (~226 MB) are **not** in this repository. Installers (or **Check i
 
 ```
 HerbivoR/
-├── gui/                 # CustomTkinter desktop application
-├── segmentation/        # BiRefNet + MobileSAM, Intact Leaves, whitebg helpers
-├── contour/             # UNET Shape contour inference
-├── leaf_contour/        # Shared mask post-processing
-├── packaging/           # Optional PyInstaller (maintainers only; not in Releases)
-├── models/              # Weights (downloaded; git-ignored)
-├── Install_CPU.bat / Install_CUDA.bat / Install.bat
-├── install.sh
-└── HerbivoR.bat / herbivor.sh
+├── gui/                      # CustomTkinter desktop application
+├── packaging/                # Bootstrap installer, Setup/DMG builders, optional PyInstaller
+├── models/                   # Weights (downloaded; git-ignored)
+├── Install_HerbivoR.bat      # Windows one-click installer (recommended)
+├── Install_HerbivoR.command  # macOS/Linux one-click installer (recommended)
+├── Install_CPU.bat / Install_CUDA.bat / Install.bat   # advanced Windows
+├── install.sh / herbivor.sh
+└── USER_GUIDE.md
 ```
 
 ---

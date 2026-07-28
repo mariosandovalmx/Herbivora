@@ -1,8 +1,9 @@
 # HerbivoR application dependencies (GUI + inference).
 #
 # PyTorch (torch / torchvision) is NOT listed here on purpose.
-# Install it first via Install_CPU.bat, Install_CUDA.bat, Install.bat, or install.sh
-# so the correct CPU or CUDA wheel is used. See INSTALL.md.
+# Install it first via Install_HerbivoR.bat / Install_HerbivoR.command
+# (or Install_CPU.bat, Install_CUDA.bat, Install.bat, install.sh)
+# so the correct CPU or CUDA wheel is used. See USER_GUIDE.md / INSTALL.md.
 
 opencv-python
 numpy>=2.0.0

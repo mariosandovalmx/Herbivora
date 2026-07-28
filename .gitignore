@@ -74,6 +74,7 @@ gui_error.log
 *.lnk
 HerbivoR.app/
 assets/*.iconset/
+dist/dmg_stage/
 
 output/
 analyzed/

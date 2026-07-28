@@ -1,72 +1,60 @@
-# HerbivoR — Installation Guide
+# HerbivoR — Installation Reference
 
-Step-by-step setup for **Windows**, **macOS**, and **Linux**.
+End users: follow the step-by-step **[USER_GUIDE.md](USER_GUIDE.md)**.
 
-Releases contain **source code only** (small ZIP). Python packages and model weights are installed on your machine by the scripts below — there is no giant bundled `.exe` in the Release.
+This page is a short reference plus **advanced** and **maintainer** notes.
 
----
-
-## 1. Prerequisites
-
-1. Install **Python 3.10 or newer** ([python.org](https://www.python.org/downloads/)).
-   - On Windows, check **“Add python.exe to PATH”** during setup.
-2. (Optional, Windows/Linux GPU) Recent **NVIDIA drivers** if you will use `Install_CUDA.bat` / CUDA on Linux.
-3. A free [Hugging Face](https://huggingface.co/) account is **not** required to download public models.
+Releases publish a **small** installer (Setup.exe / DMG when available) or **source code**. Large PyTorch wheels and model weights are **downloaded during install**, not bundled in the GitHub asset.
 
 ---
 
-## 2. Get the source code
+## Recommended (non-experts)
 
-Download **Source code (zip)** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases), or clone:
+| Platform | What to run |
+|----------|-------------|
+| Windows | **`HerbivoR-Setup-vX.Y.Z.exe`** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases), **or** extract the source ZIP and double-click **`Install_HerbivoR.bat`** |
+| macOS | **`HerbivoR-vX.Y.Z.dmg`** (if attached), **or** extract source and double-click **`Install_HerbivoR.command`** |
+| Linux | `./Install_HerbivoR.command` or `./install.sh` |
 
-```bash
-git clone https://github.com/mariosandovalmx/HerbivoR.git
-cd HerbivoR
-```
+The bootstrap installer:
+
+1. Ensures Python (Windows: private per-user install if needed)
+2. Creates `.venv`
+3. Auto-detects NVIDIA GPU → CUDA 12.4, else CPU (macOS: default wheels + MPS)
+4. Installs `requirements.txt`
+5. Downloads models (~226 MB)
+6. Creates shortcuts / `HerbivoR.app`
+
+Full walkthrough: **[USER_GUIDE.md](USER_GUIDE.md)**.
 
 ---
 
-## 3. Install dependencies and models
+## Advanced install (you already have Python 3.10+)
 
-### Windows (pick one)
+### Windows
 
-| Installer | When to use |
-|-----------|-------------|
-| **`Install_CPU.bat`** | No NVIDIA GPU, or you are unsure (recommended default) |
-| **`Install_CUDA.bat`** | NVIDIA GPU + recent drivers (PyTorch **CUDA 12.4** wheels) |
-| **`Install.bat`** | Menu to choose CPU or CUDA |
-
-Double-click the installer and wait for `Installation completed`. It will:
-
-1. Create `.venv`
-2. Install the matching PyTorch wheel
-3. Install packages from `requirements.txt`
-4. Download models into `models/` (~226 MB)
+| Script | When |
+|--------|------|
+| `Install_CPU.bat` | Force CPU |
+| `Install_CUDA.bat` | Force CUDA 12.4 |
+| `Install.bat` | Menu |
+| `python packaging/bootstrap_install.py --yes --flavor auto` | Console bootstrap |
 
 ### macOS / Linux
 
 ```bash
-chmod +x install.sh herbivor.sh
+chmod +x install.sh herbivor.sh Install_HerbivoR.command
 ./install.sh
 ```
 
-- **macOS:** one installer — PyTorch includes **Metal (MPS)**; the app uses it automatically when available.
-- **Linux:** CUDA 12.4 wheels if `nvidia-smi` works; otherwise CPU.
-
-### Manual install (any OS)
+### Manual
 
 ```bash
 python -m venv .venv
-
-# 1) PyTorch first — pick ONE (see https://pytorch.org)
-# CPU:
+# Pick ONE Torch install — see https://pytorch.org
 .venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-# CUDA 12.4:
 # .venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-# macOS (default wheels, MPS-capable):
-# .venv/bin/pip install torch torchvision
-
-# 2) App packages (does not include torch)
+# macOS: .venv/bin/pip install torch torchvision
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python download_models.py
 ```
@@ -75,50 +63,40 @@ On Windows use `.venv\Scripts\` instead of `.venv/bin/`.
 
 ---
 
-## 4. Run HerbivoR
+## Run
 
 | Platform | Command |
 |----------|---------|
-| Windows | Double-click `HerbivoR.lnk` (leaf icon) or `HerbivoR.bat` |
-| macOS / Linux | `./herbivor.sh` (macOS: optional `./packaging/create_macos_app.sh` for `HerbivoR.app`) |
-| Any OS | `.venv/bin/python -m gui.main` (or `.venv\Scripts\python.exe -m gui.main`) |
+| Windows | `HerbivoR.lnk` or `HerbivoR.bat` |
+| macOS | `HerbivoR.app` or `./herbivor.sh` |
+| Linux | `./herbivor.sh` |
 
-The installer creates **`HerbivoR.lnk`** (and a Desktop shortcut on Windows) so Explorer shows the bitten-leaf icon. Plain `.bat` files cannot carry a custom icon.
-
-If the window does not open on Windows, check `gui_error.log` in the project folder.
+If the GUI fails on Windows, check `gui_error.log`.
 
 ---
 
-## 5. First analysis (recommended path)
+## First analysis checklist
 
-1. **Project tab**
-   - Set **Input folder** and **Output folder**
-   - Click **Check installation** — verifies packages and downloads any missing models. All three models should show **OK**.
-2. **Segmentation** → **Contour / ROI** → **Analysis** as usual.
-3. Open `{output}/analyzed/results.csv` and the `*_analyzed.jpg` overlays.
+1. **Project** → set Input / Output → **Check installation** (all models OK)
+2. **Segmentation** → **Contour / ROI** → **Analysis**
+3. Open `{output}/analyzed/results.csv`
 
 ---
 
-## 6. Publishing model weights on Hugging Face (maintainers)
-
-See previous docs / `download_models.py`. Hub repo: https://huggingface.co/mariosandovalmx/HerbivoR  
-(`best_unet_shape.pth`, `best_model.pth`; MobileSAM from Ultralytics, not re-hosted).
-
----
-
-## 7. Troubleshooting
+## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `Python 3 not found` | Reinstall Python with PATH enabled |
-| CUDA install but inference on CPU | Update NVIDIA drivers; run `check_gpu.py` |
-| `pip install` fails on torch | Use the CPU installer, or pick another CUDA version on [pytorch.org](https://pytorch.org) |
-| Models missing | `python download_models.py` or Project → Check installation |
-| GUI blank / crash | Run `.venv\Scripts\python.exe -m gui.main` and read `gui_error.log` |
+| No Python (Mac/Linux) | Install Python 3.10+ from python.org or your package manager |
+| CUDA but runs on CPU | Update NVIDIA drivers; `check_gpu.py`; or reinstall CPU |
+| Models missing | Project → Check installation / `download_models.py` |
+| GUI crash | `.venv\Scripts\python.exe -m gui.main` + `gui_error.log` |
+
+See also [USER_GUIDE.md](USER_GUIDE.md#troubleshooting).
 
 ---
 
-## 8. GPU check
+## GPU check
 
 ```bash
 .venv\Scripts\python.exe check_gpu.py   # Windows
@@ -127,27 +105,44 @@ See previous docs / `download_models.py`. Hub repo: https://huggingface.co/mario
 
 ---
 
-## 9. Testing on another PC
+## Maintainers
 
-1. Copy the **source** ZIP from the Release (or clone) to the other PC.
-2. Install **Python 3.10+**.
-3. Run **`Install_CPU.bat`** (or CUDA / `./install.sh`).
-4. Run **`HerbivoR.bat`** / `./herbivor.sh`.
+### Build Windows Setup.exe
 
-Packaged PyInstaller `.exe` builds are **not** part of current Releases (too large; Torch belongs in the venv). Optional maintainer tooling remains under `packaging/` — see `packaging/README.md`.
+Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 
----
+```bat
+packaging\build_windows_setup.bat
+```
 
-## 10. Releasing a new version (maintainers)
+Output: `dist\HerbivoR-Setup-vVERSION.exe` — attach to the GitHub Release.
+
+### Build macOS DMG
+
+On a Mac:
+
+```bash
+chmod +x packaging/build_macos_dmg.sh
+./packaging/build_macos_dmg.sh
+```
+
+Output: `dist/HerbivoR-vVERSION.dmg`.
+
+### Optional PyInstaller
+
+Large onedir builds are **not** the supported user channel. See [packaging/README.md](packaging/README.md).
+
+### Release checklist
 
 1. Bump `VERSION` and `CHANGELOG.md`.
 2. Commit and push `main`.
-3. Tag and create a GitHub Release (**source only** — do not attach multi-GB exe ZIPs):
+3. Build Setup.exe / DMG when possible; attach **only** those small bootstraps (+ source ZIP is automatic).
+4. Tag and publish:
 
 ```bash
-git tag v1.2.0
+git tag v1.3.0
 git push origin main --tags
-gh release create v1.2.0 --title "HerbivoR v1.2.0" --notes-file CHANGELOG.md
+gh release create v1.3.0 --title "HerbivoR v1.3.0" --notes-file CHANGELOG.md
 ```
 
-Semver: **patch** = bugfixes; **minor** = features; **major** = breaking changes.
+Do **not** attach multi-GB PyInstaller / CUDA ZIPs to GitHub Releases (2 GB asset limit).

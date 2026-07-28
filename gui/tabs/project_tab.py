@@ -757,15 +757,16 @@ class ProjectTab(ctk.CTkFrame):
                         "-r",
                         str(REPO_ROOT / "requirements.txt"),
                     ]
-                    # Do not install torch here — CPU/CUDA wheels come from Install_*.bat / install.sh
+                    # Do not install torch here — CPU/CUDA wheels come from the bootstrap installer
                     need_torch = any("PyTorch" in m or "Torchvision" in m for m in missing)
                     if need_torch:
                         messagebox.showinfo(
                             "Install PyTorch first",
                             "PyTorch is missing. Close this dialog and run:\n\n"
-                            "  Windows: Install_CPU.bat  or  Install_CUDA.bat\n"
-                            "  macOS/Linux: ./install.sh\n\n"
-                            "Those scripts install the correct Torch wheel, then the other packages.",
+                            "  Windows: Install_HerbivoR.bat\n"
+                            "  macOS/Linux: Install_HerbivoR.command\n\n"
+                            "See USER_GUIDE.md. Those installers pick the correct Torch wheel "
+                            "and then install the other packages.",
                         )
                         return
                     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -781,13 +782,15 @@ class ProjectTab(ctk.CTkFrame):
                             "Installation Failed",
                             "Automatic installation failed. Error output:\n\n"
                             f"{err_log[:800]}\n\n"
-                            "Please run install.bat (Windows) or install.sh (macOS/Linux)."
+                            "Please run Install_HerbivoR.bat (Windows) or "
+                            "Install_HerbivoR.command (macOS/Linux). See USER_GUIDE.md."
                         )
                 except Exception as e:
                     messagebox.showerror(
                         "Installation Error",
                         f"An error occurred during installation:\n{e}\n\n"
-                        "Please run install.bat (Windows) or install.sh (macOS/Linux)."
+                        "Please run Install_HerbivoR.bat (Windows) or "
+                        "Install_HerbivoR.command (macOS/Linux)."
                     )
                 self.load_from_state()
                 return
@@ -796,7 +799,8 @@ class ProjectTab(ctk.CTkFrame):
                 "To run HerbivoR correctly, you must install the missing libraries.\n"
                 "You can do this by executing one of the following options:\n\n"
                     "Option A (Recommended):\n"
-                    "Run Install_CPU.bat or Install_CUDA.bat (Windows), or ./install.sh (macOS/Linux).\n\n"
+                    "Run Install_HerbivoR.bat (Windows) or Install_HerbivoR.command "
+                    "(macOS/Linux). See USER_GUIDE.md.\n\n"
                     "Option B (Command Line):\n"
                     "See INSTALL.md — install torch/torchvision from pytorch.org first, then:\n"
                     "  pip install -r requirements.txt\n"

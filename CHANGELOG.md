@@ -5,6 +5,17 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-07-28
+
+### Added
+- One-click bootstrap installer: `Install_HerbivoR.bat` (Windows) and `Install_HerbivoR.command` (macOS/Linux).
+- `packaging/bootstrap_install.py` — auto-detects NVIDIA GPU, installs private Python on Windows when needed, creates `.venv`, installs PyTorch + deps, downloads models, creates shortcuts.
+- Maintainer builders: `packaging/build_windows_setup.bat` (Inno Setup → `HerbivoR-Setup-*.exe`) and `packaging/build_macos_dmg.sh` (→ `HerbivoR-*.dmg`).
+- End-user documentation: `USER_GUIDE.md` (step-by-step for Windows, macOS, Linux).
+
+### Changed
+- README / INSTALL emphasize one-click install; legacy `Install_CPU.bat` / `Install_CUDA.bat` / `install.sh` remain as advanced options.
+
 ## [1.2.0] — 2026-07-28
 
 ### Added

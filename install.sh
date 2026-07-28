@@ -83,7 +83,10 @@ fi
 echo "Open the application with: ./herbivor.sh"
 if [[ "$OS" == "Darwin" ]]; then
   echo
-  echo "Optional: create a Dock/Finder app with the leaf icon:"
-  echo "  chmod +x packaging/create_macos_app.sh && ./packaging/create_macos_app.sh"
+  echo "Creating HerbivoR.app with the leaf icon..."
+  if [[ -x "packaging/create_macos_app.sh" ]] || [[ -f "packaging/create_macos_app.sh" ]]; then
+    chmod +x packaging/create_macos_app.sh 2>/dev/null || true
+    bash packaging/create_macos_app.sh || echo "  (app shortcut skipped — run packaging/create_macos_app.sh later)"
+  fi
 fi
 echo
