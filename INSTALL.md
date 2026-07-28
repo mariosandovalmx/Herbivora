@@ -123,7 +123,7 @@ A native `.dmg` requires macOS (`hdiutil`). **You do not need a local Mac:** Git
 
 1. Publish the GitHub Release for your tag (attach `HerbivoR-Setup-v*.exe` from Windows if ready).
 2. Workflow `.github/workflows/macos-dmg.yml` builds `HerbivoR-vVERSION.dmg` on `macos-latest` and uploads it, plus `SHA256SUMS`.
-3. To rebuild for an existing tag: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.4`).
+3. To rebuild for an existing tag: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.5`).
 
 Optional local build (only if you have a Mac):
 

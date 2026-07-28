@@ -21,7 +21,7 @@ You **cannot** build a native `.dmg` on Windows (`hdiutil` is macOS-only). Use C
 2. Workflow [`.github/workflows/macos-dmg.yml`](../.github/workflows/macos-dmg.yml) runs on `macos-latest`, builds `HerbivoR-vVERSION.dmg`, and uploads it to that Release.
 3. The same workflow uploads **`SHA256SUMS`** (hashes of the DMG and any Setup.exe already on the Release).
 
-Manual re-run: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.4`).
+Manual re-run: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.5`).
 
 Optional local build (only if you have a Mac):
 
@@ -39,7 +39,7 @@ shasum -a 256 -c SHA256SUMS
 
 ```powershell
 # Windows (PowerShell) — compare to the line in SHA256SUMS
-Get-FileHash .\HerbivoR-Setup-v1.3.4.exe -Algorithm SHA256
+Get-FileHash .\HerbivoR-Setup-v1.3.5.exe -Algorithm SHA256
 ```
 
 ## Optional PyInstaller (not for normal Releases)

@@ -3,7 +3,7 @@
 #
 # Triggers:
 #   - When a Release is published (tag push + release create)
-#   - Manual: Actions → "macOS DMG" → Run workflow (enter tag, e.g. v1.3.4)
+#   - Manual: Actions → "macOS DMG" → Run workflow (enter tag, e.g. v1.3.5)
 #
 # No local Mac required. Windows maintainers publish the Release; CI builds the DMG.
 
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build for (e.g. v1.3.4)"
+        description: "Release tag to build for (e.g. v1.3.5)"
         required: true
         type: string
 

@@ -450,7 +450,7 @@ class GapDetector:
         best_tri = None
 
         for defect in self._defects:
-            s, e, f, d = defect[0]
+            s, e, f, d = np.asarray(defect, dtype=np.int32).ravel()[:4]
             depth = float(d) / 256.0
             sx = float(self._defect_cnt[s][0][0]); sy = float(self._defect_cnt[s][0][1])
             ex = float(self._defect_cnt[e][0][0]); ey = float(self._defect_cnt[e][0][1])
@@ -487,6 +487,8 @@ class GapDetector:
             defects = cv2.convexityDefects(cnt, hull_idx)
         except cv2.error:
             return None, None
+        if defects is not None:
+            defects = np.asarray(defects, dtype=np.int32).reshape(-1, 4)
         return defects, cnt
 
     def _best_defect_for_candidate(self, cand: GapCandidate) -> float:
@@ -499,7 +501,7 @@ class GapDetector:
         MAX_DIST = 60.0
         best = 0.0
         for defect in self._defects:
-            s, e, f, d = defect[0]
+            s, e, f, d = np.asarray(defect, dtype=np.int32).ravel()[:4]
             depth = float(d) / 256.0
             key_pts = np.array([
                 [float(self._defect_cnt[s][0][0]), float(self._defect_cnt[s][0][1])],

@@ -64,12 +64,15 @@ def _exterior_defect_triangles(cnt: np.ndarray, mask: np.ndarray) -> List[Tuple]
     if defects is None:
         return []
 
+    # OpenCV may return (N, 1, 4) or (N, 4); normalize before unpacking.
+    defects = np.asarray(defects, dtype=np.int32).reshape(-1, 4)
+
     area = max(1, int(mask.sum()))
     min_depth = max(2.5, 0.008 * (area**0.5))
     out: List[Tuple] = []
 
     for i in range(defects.shape[0]):
-        s, e, f, d = defects[i, 0]
+        s, e, f, d = defects[i]
         depth = float(d) / 256.0
         if depth < min_depth:
             continue
