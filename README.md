@@ -24,7 +24,7 @@ Pipeline:
 | Windows (menu) | Double-click **`Install.bat`** |
 | macOS / Linux | `chmod +x install.sh herbivor.sh && ./install.sh` |
 
-3. Run: **`HerbivoR.bat`** (Windows) or **`./herbivor.sh`** (macOS / Linux).
+3. Run: **`HerbivoR.lnk`** (leaf icon; created by the installer) or **`HerbivoR.bat`**. On macOS: **`./herbivor.sh`**, or build **`HerbivoR.app`** with `./packaging/create_macos_app.sh`.
 
 Full guide: **[INSTALL.md](INSTALL.md)**.
 

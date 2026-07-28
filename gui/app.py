@@ -31,6 +31,10 @@ class HerbivoRApp(ctk.CTk):
         self.geometry("1320x820")
         self.minsize(1000, 700)
 
+        from gui.icons import apply_window_icon, load_header_image
+
+        apply_window_icon(self)
+
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("green")
 
@@ -55,6 +59,19 @@ class HerbivoRApp(ctk.CTk):
 
         top_bar = ctk.CTkFrame(self._left_wrap, fg_color="transparent")
         top_bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(6, 0))
+
+        header_img = load_header_image(32)
+        if header_img is not None:
+            self._header_icon_img = header_img  # keep reference
+            ctk.CTkLabel(top_bar, text="", image=header_img, width=32).pack(
+                side="left", padx=(0, 8)
+            )
+        ctk.CTkLabel(
+            top_bar,
+            text="HerbivoR",
+            font=ctk.CTkFont(size=14, weight="bold"),
+        ).pack(side="left")
+
         self._show_log_btn = ctk.CTkButton(
             top_bar,
             text="Show Log",

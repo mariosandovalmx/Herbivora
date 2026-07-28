@@ -79,9 +79,11 @@ On Windows use `.venv\Scripts\` instead of `.venv/bin/`.
 
 | Platform | Command |
 |----------|---------|
-| Windows | Double-click `HerbivoR.bat` |
-| macOS / Linux | `./herbivor.sh` |
+| Windows | Double-click `HerbivoR.lnk` (leaf icon) or `HerbivoR.bat` |
+| macOS / Linux | `./herbivor.sh` (macOS: optional `./packaging/create_macos_app.sh` for `HerbivoR.app`) |
 | Any OS | `.venv/bin/python -m gui.main` (or `.venv\Scripts\python.exe -m gui.main`) |
+
+The installer creates **`HerbivoR.lnk`** (and a Desktop shortcut on Windows) so Explorer shows the bitten-leaf icon. Plain `.bat` files cannot carry a custom icon.
 
 If the window does not open on Windows, check `gui_error.log` in the project folder.
 
@@ -143,9 +145,9 @@ Packaged PyInstaller `.exe` builds are **not** part of current Releases (too lar
 3. Tag and create a GitHub Release (**source only** — do not attach multi-GB exe ZIPs):
 
 ```bash
-git tag v1.1.0
+git tag v1.2.0
 git push origin main --tags
-gh release create v1.1.0 --title "HerbivoR v1.1.0" --notes-file CHANGELOG.md
+gh release create v1.2.0 --title "HerbivoR v1.2.0" --notes-file CHANGELOG.md
 ```
 
 Semver: **patch** = bugfixes; **minor** = features; **major** = breaking changes.

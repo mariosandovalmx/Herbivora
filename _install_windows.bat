@@ -153,5 +153,13 @@ if /i "%TORCH_FLAVOR%"=="cuda" (
     echo CUDA tip: run check_gpu.py if inference still uses CPU.
 )
 echo.
+echo Creating HerbivoR.lnk shortcut with app icon...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\create_windows_shortcut.ps1" 2>nul
+if errorlevel 1 (
+    echo   ^(shortcut skipped — run Create_HerbivoR_Shortcut.bat later^)
+) else (
+    echo   Use HerbivoR.lnk ^(or the Desktop shortcut^) for the leaf icon in Explorer.
+)
+echo.
 if /i not "%HERBIVOR_INSTALL_PAUSE%"=="0" pause
 exit /b 0

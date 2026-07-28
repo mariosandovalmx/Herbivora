@@ -14,6 +14,9 @@ datas = [
     (str(ROOT / "segmentation" / "birefnet_mobilesam" / "config.yaml"), "segmentation/birefnet_mobilesam"),
     (str(ROOT / "VERSION"), "."),
     (str(ROOT / "models" / "README.md"), "models"),
+    (str(ROOT / "assets" / "herbivor.ico"), "assets"),
+    (str(ROOT / "assets" / "herbivor_256.png"), "assets"),
+    (str(ROOT / "assets" / "herbivor_icon.png"), "assets"),
 ]
 
 binaries = []
@@ -109,6 +112,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(ROOT / "assets" / "herbivor.ico"),
 )
 
 coll = COLLECT(

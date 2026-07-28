@@ -71,6 +71,10 @@ Thumbs.db
 # HerbivoR runtime / local data
 gui_error.log
 *.log
+*.lnk
+HerbivoR.app/
+assets/*.iconset/
+
 output/
 analyzed/
 test_images/

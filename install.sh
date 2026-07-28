@@ -81,4 +81,9 @@ if [[ "$OS" == "Darwin" ]]; then
   echo "On Apple Silicon / modern Macs, Metal (MPS) is used automatically when available."
 fi
 echo "Open the application with: ./herbivor.sh"
+if [[ "$OS" == "Darwin" ]]; then
+  echo
+  echo "Optional: create a Dock/Finder app with the leaf icon:"
+  echo "  chmod +x packaging/create_macos_app.sh && ./packaging/create_macos_app.sh"
+fi
 echo
