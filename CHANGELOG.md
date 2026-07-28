@@ -5,6 +5,13 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] — 2026-07-28
+
+### Fixed
+- Contour tab no longer shows live segmentation mask outlines after Run
+  segmentation. **Overlay contour** only lists real `leaf_roi_preview/overlays`
+  from **Run contour**, so Segmentation and Contour stay independent.
+
 ## [1.3.3] — 2026-07-28
 
 ### Fixed
