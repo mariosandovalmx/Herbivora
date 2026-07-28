@@ -47,8 +47,9 @@ Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createalls
   Excludes: ".git\*,.venv\*,__pycache__\*,*.pyc,dist\*,build\*,.cursor\*,hf_cache\*,models\*.pt,models\*.pth,*.lnk,gui_error.log,.pytest_cache\*,*.egg-info\*"
 
 [Icons]
-Name: "{group}\Install / Repair HerbivoR"; Filename: "{app}\Install_HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
-Name: "{group}\HerbivoR (after install)"; Filename: "{app}\HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
+Name: "{group}\Install or Repair HerbivoR"; Filename: "{app}\Install_HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
+Name: "{group}\HerbivoR"; Filename: "{app}\HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
+Name: "{autodesktop}\HerbivoR"; Filename: "{app}\HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"; Tasks: desktopicon
 Name: "{group}\Uninstall HerbivoR"; Filename: "{uninstallexe}"
 
 [Run]

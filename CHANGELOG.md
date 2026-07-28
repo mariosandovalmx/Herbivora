@@ -5,6 +5,12 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] — 2026-07-28
+
+### Fixed
+- Windows Setup: Start Menu shortcut no longer uses `/` in the name (caused
+  `IPersistFile::Save failed; 0x80070003` — Windows treated `/` as a path separator).
+
 ## [1.3.2] — 2026-07-28
 
 ### Changed
