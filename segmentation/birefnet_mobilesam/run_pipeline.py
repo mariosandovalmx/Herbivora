@@ -452,6 +452,7 @@ def process_image(
         "original_size": [orig_w, orig_h],
         "output_size": [cfg["output_size"], cfg["output_size"]],
         "scale_factor": round(scale_factor, 6),
+        "scale_source": "original_photo",
         "letterbox_offset": list(offset),
         "crop_bbox": list(crop_bbox),
         "pre_ratio": list(pre_ratio),

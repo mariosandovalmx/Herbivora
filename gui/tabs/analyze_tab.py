@@ -50,7 +50,7 @@ class AnalyzeTab(ctk.CTkFrame):
 
         ctk.CTkLabel(
             scroll,
-            text=f"U-Net resolution: {PIPELINE_RESOLUTION}×{PIPELINE_RESOLUTION} (fixed)",
+            text=f"",
             text_color="gray",
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=4)
@@ -176,17 +176,22 @@ class AnalyzeTab(ctk.CTkFrame):
             justify="left",
         ).grid(row=5, column=0, sticky="w", pady=(8, 4))
 
-        btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        btn_row.grid(row=6, column=0, sticky="ew", pady=16)
-        ctk.CTkButton(
-            btn_row,
-            text="Run U-Net analysis",
+        btn_grid = ctk.CTkFrame(scroll, fg_color="transparent")
+        btn_grid.grid(row=6, column=0, sticky="ew", pady=16)
+        btn_grid.grid_columnconfigure(0, weight=1)
+        btn_grid.grid_columnconfigure(1, weight=1)
+
+        self._run_btn = ctk.CTkButton(
+            btn_grid,
+            text="Run HerbivoR",
             height=40,
             font=ctk.CTkFont(weight="bold"),
             command=self._on_run,
-        ).pack(side="left", padx=4)
+        )
+        self._run_btn.grid(row=0, column=0, sticky="ew", padx=(0, 4), pady=(0, 6))
+
         self._edit_damage_btn = ctk.CTkButton(
-            btn_row,
+            btn_grid,
             text="Edit Damage",
             height=40,
             font=ctk.CTkFont(weight="bold"),
@@ -194,12 +199,26 @@ class AnalyzeTab(ctk.CTkFrame):
             hover_color=("#27AE60", "#196F3D"),
             command=self._on_edit_damage,
         )
-        self._edit_damage_btn.pack(side="left", padx=4)
-        ctk.CTkButton(btn_row, text="Open Results", command=self._open_results).pack(
-            side="left", padx=4
+        self._edit_damage_btn.grid(row=0, column=1, sticky="ew", padx=(4, 0), pady=(0, 6))
+
+        self._open_results_btn = ctk.CTkButton(
+            btn_grid,
+            text="Open Results",
+            height=40,
+            command=self._open_results,
         )
+        self._open_results_btn.grid(row=1, column=0, sticky="ew", padx=(0, 4), pady=(0, 0))
+
+        self._export_btn = ctk.CTkButton(
+            btn_grid,
+            text="Export measurements",
+            height=40,
+            command=self._on_export_measurements,
+        )
+        self._export_btn.grid(row=1, column=1, sticky="ew", padx=(4, 0), pady=(0, 0))
+
         InfoButton(
-            btn_row,
+            btn_grid,
             title="Damage editing",
             message=(
                 "Press Edit Damage to open the tool bar.\n\n"
@@ -212,7 +231,7 @@ class AnalyzeTab(ctk.CTkFrame):
                 "(Tolerance controls that fallback).\n\n"
                 "Select Region + Remove: removes the connected damage blob under the click."
             ),
-        ).pack(side="left", padx=4)
+        ).grid(row=0, column=2, rowspan=2, padx=(8, 0), sticky="n")
 
         self._edit_hint = ctk.CTkLabel(
             scroll,
@@ -402,3 +421,61 @@ class AnalyzeTab(ctk.CTkFrame):
         if an.is_dir():
             from gui.open_path import open_path
             open_path(an)
+
+    def _on_export_measurements(self) -> None:
+        from tkinter import filedialog
+
+        from gui.export_measurements import build_measurement_rows, write_measurements
+        from gui.paths import analyzed_dir
+
+        self.sync_to_state()
+        out = self._state.output_path()
+        if out is None:
+            messagebox.showerror(
+                "Output folder not set",
+                "Define the output folder in the Project tab first.",
+            )
+            return
+
+        an = analyzed_dir(out)
+        csv_path = an / "results.csv"
+        if not csv_path.is_file():
+            messagebox.showwarning(
+                "No results yet",
+                "No analysis results found.\n\n"
+                "Run U-Net analysis first, then export measurements.",
+            )
+            return
+
+        include_cm2 = bool(self._state.report_area_cm2)
+        path = filedialog.asksaveasfilename(
+            title="Export measurements",
+            defaultextension=".csv",
+            initialfile="herbivory_measurements.csv",
+            filetypes=[
+                ("CSV (comma-separated)", "*.csv"),
+                ("Text / TSV (tab-separated)", "*.txt"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+
+        try:
+            rows = build_measurement_rows(an, include_cm2=include_cm2)
+            if not rows:
+                messagebox.showwarning(
+                    "Empty results",
+                    "results.csv has no data rows to export.",
+                )
+                return
+            write_measurements(Path(path), rows, include_cm2=include_cm2)
+        except Exception as e:
+            messagebox.showerror("Export failed", str(e))
+            return
+
+        mode = "Damage % + area (cm²)" if include_cm2 else "Damage % only"
+        messagebox.showinfo(
+            "Export complete",
+            f"Saved {len(rows)} leaf measurement(s) ({mode}).\n\n{path}",
+        )

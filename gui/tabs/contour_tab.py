@@ -46,7 +46,7 @@ class ContourTab(ctk.CTkFrame):
 
         ctk.CTkLabel(
             scroll,
-            text=f"Uses segmentation canvas: {PIPELINE_RESOLUTION}×{PIPELINE_RESOLUTION} (fixed)",
+            text=f"",
             text_color="gray",
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=(0, 4))
@@ -66,7 +66,7 @@ class ContourTab(ctk.CTkFrame):
         ctk.CTkLabel(
             unet_frame,
             text=(
-                "Mask-to-Mask U-Net (512 px): extracts the partial silhouette "
+                "Mask-to-Mask U-Net: extracts the partial silhouette "
                 "from the segmented leaf and completes missing edges to reconstruct "
                 "the intact leaf ROI. Use Edit Contour to fix gaps with Add, Remove, "
                 "Line, or Polygon tools."
@@ -75,20 +75,6 @@ class ContourTab(ctk.CTkFrame):
             wraplength=340,
             justify="left",
         ).pack(anchor="w", pady=(0, 6))
-
-        row_ckpt = ctk.CTkFrame(unet_frame, fg_color="transparent")
-        row_ckpt.pack(fill="x", pady=2)
-        ctk.CTkLabel(row_ckpt, text="Checkpoint:").pack(side="left")
-        self._recon_unet_shape_model = ctk.CTkEntry(
-            row_ckpt, width=170, placeholder_text=DEFAULT_UNET_SHAPE_MODEL.name,
-        )
-        self._recon_unet_shape_model.pack(side="left", padx=6)
-        ctk.CTkLabel(
-            unet_frame,
-            text="Same path as Project → Advanced → Contour U-Net.",
-            text_color="gray",
-            font=ctk.CTkFont(size=11),
-        ).pack(anchor="w", pady=(2, 0))
 
         btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
         btn_row.grid(row=5, column=0, sticky="ew", pady=8)
@@ -172,13 +158,6 @@ class ContourTab(ctk.CTkFrame):
             self.set_run_contour_enabled(True)
 
     def load_from_state(self) -> None:
-        ckpt = (
-            getattr(self._state, "recon_model_unet_shape", "")
-            or getattr(self._state, "leaf_model", "")
-            or str(DEFAULT_UNET_SHAPE_MODEL)
-        )
-        self._recon_unet_shape_model.delete(0, "end")
-        self._recon_unet_shape_model.insert(0, ckpt)
         self.refresh_preview()
 
     def refresh_preview(self) -> None:
@@ -190,10 +169,6 @@ class ContourTab(ctk.CTkFrame):
     def sync_to_state(self) -> None:
         self._state.contour_method = "recon_unet_shape"
         self._state.leaf_normalize_bg = True
-        ckpt = self._recon_unet_shape_model.get().strip().strip("\"'")
-        if ckpt:
-            self._state.recon_model_unet_shape = ckpt
-            self._state.leaf_model = ckpt  # keep Project Contour U-Net in sync
         self._on_change()
 
     def _validate(self) -> bool:
@@ -220,13 +195,15 @@ class ContourTab(ctk.CTkFrame):
                 )
             return False
         unet_path = Path(
-            self._state.recon_model_unet_shape or str(DEFAULT_UNET_SHAPE_MODEL)
+            self._state.recon_model_unet_shape
+            or self._state.leaf_model
+            or str(DEFAULT_UNET_SHAPE_MODEL)
         )
         if not unet_path.is_file():
             messagebox.showerror(
                 "Error",
                 f"UNET Shape checkpoint not found:\n{unet_path}\n\n"
-                "Download the models first:\n"
+                "Set Contour U-Net under Project → Advanced, or download models:\n"
                 "  python download_models.py",
             )
             return False

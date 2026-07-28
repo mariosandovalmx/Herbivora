@@ -38,6 +38,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from image_io import VALID_IMAGE_EXTENSIONS, load_bgr  # noqa: E402
+from segmentation.scale_metadata import write_scale_metadata  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -177,12 +178,15 @@ def process_batch(
     close_k: int = 7,
     preview: int = 0,
     output_size: int = 768,
+    scale_source: str = "original_photo",
     exts: tuple[str, ...] = tuple(VALID_IMAGE_EXTENSIONS),
 ) -> None:
-    masks_dir   = output_dir / "masks"
-    whitebg_dir = output_dir / "white_bg"
+    masks_dir    = output_dir / "masks"
+    whitebg_dir  = output_dir / "white_bg"
+    metadata_dir = output_dir / "metadata"
     masks_dir.mkdir(parents=True, exist_ok=True)
     whitebg_dir.mkdir(parents=True, exist_ok=True)
+    metadata_dir.mkdir(parents=True, exist_ok=True)
 
     image_files = sorted(
         f for f in input_dir.iterdir()
@@ -197,11 +201,12 @@ def process_batch(
     failed = []
 
     for img_path in tqdm(image_files, desc="Segmenting", unit="img"):
-        mask_out    = masks_dir   / f"{img_path.stem}_mask.png"
-        whitebg_out = whitebg_dir / f"{img_path.stem}_white_bg.png"
+        mask_out    = masks_dir    / f"{img_path.stem}_mask.png"
+        whitebg_out = whitebg_dir  / f"{img_path.stem}_white_bg.png"
+        meta_out    = metadata_dir / f"{img_path.stem}.json"
 
-        # Skip already processed
-        if mask_out.exists() and whitebg_out.exists():
+        # Skip already processed (metadata included, so scale stays recoverable)
+        if mask_out.exists() and whitebg_out.exists() and meta_out.exists():
             continue
 
         img = load_bgr(img_path)
@@ -217,11 +222,22 @@ def process_batch(
             failed.append(f"{img_path.name} ({exc})")
             continue
 
+        src_h, src_w = white_bg.shape[:2]
         if output_size > 0:
             mask     = _resize_to_max(mask,     output_size)
             white_bg = _resize_to_max(white_bg, output_size)
         cv2.imwrite(str(mask_out),    mask)
         cv2.imwrite(str(whitebg_out), white_bg)
+        out_h, out_w = white_bg.shape[:2]
+        write_scale_metadata(
+            meta_out,
+            image_id=img_path.stem,
+            source_size=(src_w, src_h),
+            output_size=(out_w, out_h),
+            scale_factor=out_w / float(src_w),
+            scale_source=scale_source,
+            output_path=whitebg_out,
+        )
 
     if failed:
         print(f"\nFailed ({len(failed)}): {failed[:10]}{'...' if len(failed)>10 else ''}")
@@ -324,13 +340,19 @@ if __name__ == "__main__":
         "--output-size", type=int, default=768,
         help="Resize output so longest side = N px (0 = native resolution).",
     )
+    parser.add_argument(
+        "--scale-source", choices=("original_photo", "derived_image"),
+        default="original_photo",
+        help="Whether --input holds the user's photos or images derived from them.",
+    )
     args = parser.parse_args()
 
     process_batch(
-        input_dir   = Path(args.input),
-        output_dir  = Path(args.output),
-        sat_min     = args.sat_min,
-        close_k     = args.close_k,
-        preview     = args.preview,
-        output_size = args.output_size,
+        input_dir    = Path(args.input),
+        output_dir   = Path(args.output),
+        sat_min      = args.sat_min,
+        close_k      = args.close_k,
+        preview      = args.preview,
+        output_size  = args.output_size,
+        scale_source = args.scale_source,
     )

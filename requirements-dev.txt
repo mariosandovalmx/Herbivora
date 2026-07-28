@@ -1,0 +1,2 @@
+# Dev / packaging tools (not required for normal Install.bat users)
+pyinstaller>=6.3.0

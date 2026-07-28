@@ -2,10 +2,26 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 import re
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+
+def app_root() -> Path:
+    """Writable project root (next to the exe when frozen; repo root otherwise)."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+def bundle_root() -> Path:
+    """Read-only resources root (PyInstaller extract dir, or same as app_root)."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return app_root()
+
+
+REPO_ROOT = app_root()
 
 from image_io import VALID_IMAGE_EXTENSIONS as VALID_EXT, is_image_path  # noqa: E402
 
@@ -21,7 +37,7 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_MOBILESAM = MODELS_DIR / "mobile_sam.pt"
 DEFAULT_UNET_SHAPE_MODEL = MODELS_DIR / "best_unet_shape.pth"
-DEFAULT_UNET_SHAPE_CONFIG = REPO_ROOT / "contour" / "configs" / "config_train_f2lsm.yaml"
+DEFAULT_UNET_SHAPE_CONFIG = bundle_root() / "contour" / "configs" / "config_train_f2lsm.yaml"
 DEFAULT_DAMAGE_MODEL = MODELS_DIR / "best_model.pth"
 # Alias used by Contour leaf-weights args
 DEFAULT_LEAF_MODEL = DEFAULT_UNET_SHAPE_MODEL

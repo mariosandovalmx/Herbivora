@@ -211,10 +211,16 @@ def build_whitebg_args(state: ProjectState, *, output_size: int | None = None) -
     seg = segmentation_dir(out_root)
     wb_input = resolve_whitebg_input(state)
     size = output_size if output_size is not None else state.segmentation_output_size()
+    # Scale calibration is measured on the user's photos, so it can only be mapped
+    # into white_bg pixels when whitebg_masks reads those photos rather than the
+    # FastSAM crops.
+    inp = state.input_path()
+    scale_source = "original_photo" if inp is not None and wb_input == inp else "derived_image"
     args = [
         "--input", str(wb_input),
         "--output", str(seg),
         "--clean-output",
+        "--scale-source", scale_source,
     ]
     if size is not None and size > 0:
         args.extend(["--output-size", str(size)])
@@ -235,6 +241,7 @@ def build_skip_segmentation_args(state: ProjectState) -> list[str]:
         "--output", str(segmentation_dir(out_root)),
         "--clean-output",
         "--output-size", str(out_size),
+        "--scale-source", "original_photo",
     ]
     if state.remove_blue:
         args.append("--remove-blue")
@@ -336,6 +343,36 @@ def save_circle_override(
     )
 
 
+def _white_bg_scale(meta: dict, *, from_original: bool) -> float | None:
+    """Linear factor converting source pixels into white_bg pixels.
+
+    Segmentation writes ``scale_factor`` (measurement space → white_bg) and
+    ``pre_ratio`` (source photo → measurement space). Calibrations taken on the
+    user's photo (manual overrides, scale_detect scans) need both; the circle
+    recorded by BiRefNet is already in measurement space and needs only the
+    former. Returns None when the metadata cannot describe the conversion, so
+    callers report % only instead of a calibration in the wrong pixel space.
+    """
+    try:
+        scale_factor = float(meta.get("scale_factor"))
+    except (TypeError, ValueError):
+        return None
+    if not scale_factor > 0:
+        return None
+    if not from_original:
+        return scale_factor
+    # Metadata predating scale_source was always produced from the user's photo.
+    if meta.get("scale_source", "original_photo") != "original_photo":
+        return None
+    try:
+        pre_scale = float((meta.get("pre_ratio") or [1.0, 1.0])[0])
+    except (TypeError, ValueError, IndexError):
+        return None
+    if not pre_scale > 0:
+        return None
+    return pre_scale * scale_factor
+
+
 def run_scale_detection(state: ProjectState, log: LogFn) -> Path | None:
     """Build scale_reference.json from BiRefNet metadata or direct blue dot scan.
 
@@ -363,7 +400,7 @@ def run_scale_detection(state: ProjectState, log: LogFn) -> Path | None:
     if meta_dir.is_dir():
         meta_files = sorted(meta_dir.glob("*.json"))
         if meta_files:
-            log(f"Scale: reading circle data from {len(meta_files)} BiRefNet metadata file(s)...")
+            log(f"Scale: reading circle data from {len(meta_files)} segmentation metadata file(s)...")
             n_manual = 0
             for mf in meta_files:
                 try:
@@ -371,39 +408,50 @@ def run_scale_detection(state: ProjectState, log: LogFn) -> Path | None:
                 except (OSError, _json.JSONDecodeError):
                     continue
                 image_id = meta.get("image_id", mf.stem)
-                # BiRefNet crops to the leaf's bbox then resizes that crop into the
-                # white_bg image (see run_pipeline.py's crop_to_bbox + resize_letterbox).
-                # Circle/diameter measurements are taken on the ORIGINAL photo, so we
-                # must convert cm²/px² into white_bg-pixel space using this per-image
-                # linear scale_factor before writing it out — dividing by scale_factor²
-                # (not by an original/segmented-dimension ratio, which ignores cropping
-                # and silently produces a wrong, inflated area).
-                scale_factor_img = meta.get("scale_factor")
+                # Segmentation crops to the leaf's bbox then resizes that crop into
+                # the white_bg image, while analyze_leaves.py counts area in white_bg
+                # pixels. Every cm²/px² therefore has to be divided by the squared
+                # linear factor for its own pixel space before being written out.
                 override = overrides.get(image_id)
                 if override:
-                    diameter_px = float(override["diameter_px"])
+                    try:
+                        diameter_px = float(override["diameter_px"])
+                    except (KeyError, TypeError, ValueError):
+                        diameter_px = 0.0
+                    if not diameter_px > 0:
+                        log(f"Scale: ignoring manual dot for '{image_id}' — invalid diameter.")
+                        continue
+                    factor = _white_bg_scale(meta, from_original=True)
+                    if factor is None:
+                        log(
+                            f"Scale: skipping '{image_id}' — cannot map the manual dot "
+                            "into white_bg pixels."
+                        )
+                        continue
                     known_area_mm2 = math.pi * (state.birefnet_known_diameter_mm / 2) ** 2
                     circle_area_px = math.pi * (diameter_px / 2) ** 2
-                    mm2_per_px2 = known_area_mm2 / circle_area_px
-                    cm2_per_px2 = mm2_per_px2 / 100.0  # mm² → cm²
-                    if scale_factor_img:
-                        cm2_per_px2 /= scale_factor_img ** 2
-                    scale_entries[image_id] = cm2_per_px2
+                    cm2_per_px2 = (known_area_mm2 / circle_area_px) / 100.0  # mm² → cm²
+                    scale_entries[image_id] = cm2_per_px2 / factor ** 2
                     n_manual += 1
                 else:
                     circle = meta.get("circle", {})
                     mm2_per_px2 = circle.get("mm2_per_px2")
                     if mm2_per_px2 and circle.get("found"):
-                        cm2_per_px2 = float(mm2_per_px2) / 100.0  # mm² → cm²
-                        if scale_factor_img:
-                            cm2_per_px2 /= scale_factor_img ** 2
+                        factor = _white_bg_scale(meta, from_original=False)
+                        if factor is None:
+                            log(
+                                f"Scale: skipping '{image_id}' — segmentation metadata "
+                                "has no usable scale_factor."
+                            )
+                            continue
+                        cm2_per_px2 = (float(mm2_per_px2) / 100.0) / factor ** 2
                         # Stored as bare stem; lookup_scale_factor handles extension/suffix variants
                         scale_entries[image_id] = cm2_per_px2
             detected = len(scale_entries)
             manual_note = f" ({n_manual} manual override(s))" if n_manual else ""
-            log(f"Scale: blue dot found in {detected}/{len(meta_files)} image(s) via BiRefNet metadata{manual_note}.")
+            log(f"Scale: blue dot found in {detected}/{len(meta_files)} image(s) via segmentation metadata{manual_note}.")
             if detected == 0:
-                log("Scale: no blue dots in BiRefNet metadata — trying direct scan...")
+                log("Scale: no blue dots in segmentation metadata — trying direct scan...")
 
     # Fallback: scan original images when BiRefNet metadata has no circle data
     if not scale_entries:
@@ -426,22 +474,32 @@ def run_scale_detection(state: ProjectState, log: LogFn) -> Path | None:
         if detected == 0:
             log("WARNING: No blue dots detected. Results will be reported as % only.")
             return None
-        scale_entries = {k: v for k, v in results.items() if v is not None}
-        # scan_folder() measures the dot on the ORIGINAL photo; convert into
-        # white_bg-pixel space using each image's own scale_factor (same reasoning
-        # as the primary metadata path above), if its metadata file exists.
-        if meta_dir.is_dir():
-            for image_name, cm2_per_px2_orig in list(scale_entries.items()):
-                mf = meta_dir / f"{Path(image_name).stem}.json"
-                if not mf.is_file():
-                    continue
+        # scan_folder() measures the dot on the ORIGINAL photo, so every entry must
+        # be converted into white_bg-pixel space using that image's segmentation
+        # metadata. Without it the conversion is unknown, and emitting the
+        # original-space value would silently report wrong cm² areas.
+        scale_entries = {}
+        unmapped: list[str] = []
+        for image_name, cm2_per_px2_orig in results.items():
+            if cm2_per_px2_orig is None:
+                continue
+            meta = {}
+            mf = meta_dir / f"{Path(image_name).stem}.json"
+            if mf.is_file():
                 try:
                     meta = _json.loads(mf.read_text(encoding="utf-8"))
                 except (OSError, _json.JSONDecodeError):
-                    continue
-                scale_factor_img = meta.get("scale_factor")
-                if scale_factor_img:
-                    scale_entries[image_name] = cm2_per_px2_orig / (scale_factor_img ** 2)
+                    meta = {}
+            factor = _white_bg_scale(meta, from_original=True)
+            if factor is None:
+                unmapped.append(image_name)
+                continue
+            scale_entries[image_name] = cm2_per_px2_orig / factor ** 2
+        if unmapped:
+            log(
+                f"WARNING: {len(unmapped)} image(s) have no usable segmentation metadata "
+                "to convert the blue dot into white_bg pixels — reported as % only."
+            )
 
     if not scale_entries:
         log("Scale: no scale data found — reporting % only.")
@@ -552,6 +610,7 @@ def build_intact_args(state: ProjectState) -> list[str]:
         "--close-k", "7",
         "--preview", "0",
         "--output-size", str(state.segmentation_output_size() or 1024),
+        "--scale-source", "original_photo",
     ]
 
 

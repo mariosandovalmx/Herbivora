@@ -2,6 +2,8 @@
 
 **HerbivoR** is a desktop GUI for quantifying leaf herbivory damage from photographs.
 
+**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **Repo:** [github.com/mariosandovalmx/HerbivoR](https://github.com/mariosandovalmx/HerbivoR)
+
 Pipeline:
 
 1. **Segmentation** — isolate leaves (BiRefNet + MobileSAM, Intact Leaves, or Interactive)
@@ -17,7 +19,7 @@ Pipeline:
 | Windows | Double-click `Install.bat` | Double-click `HerbivoR.bat` |
 | macOS / Linux | `chmod +x install.sh herbivor.sh && ./install.sh` | `./herbivor.sh` |
 
-Full step-by-step instructions: **[INSTALL.md](INSTALL.md)**
+Full step-by-step instructions: **[INSTALL.md](INSTALL.md)** (includes **testing on another PC** with a packaged `.exe` and **how to cut a Release**).
 
 ---
 
@@ -27,9 +29,10 @@ Full step-by-step instructions: **[INSTALL.md](INSTALL.md)**
 - ~3 GB disk for the virtualenv + model weights
 - Optional: NVIDIA GPU with CUDA for faster inference
 
-Model weights (~226 MB) are **not** in this repository. They download automatically during install from Hugging Face:
+Model weights (~226 MB) are **not** in this repository. They download automatically during install (or via **Check installation** in the GUI):
 
-[`mariosandovalmx/HerbivoR`](https://huggingface.co/mariosandovalmx/HerbivoR)
+- HerbivoR U-Nets from [`mariosandovalmx/HerbivoR`](https://huggingface.co/mariosandovalmx/HerbivoR)
+- MobileSAM from [Ultralytics assets](https://github.com/ultralytics/assets/releases) (third-party, Apache-2.0)
 
 ---
 
@@ -41,6 +44,7 @@ HerbivoR/
 ├── segmentation/        # BiRefNet + MobileSAM, Intact Leaves, whitebg helpers
 ├── contour/             # UNET Shape contour inference
 ├── leaf_contour/        # Shared mask post-processing
+├── packaging/           # PyInstaller scripts (Windows / macOS test builds)
 ├── models/              # Weights (downloaded; git-ignored)
 ├── analyze_leaves.py    # Damage analysis CLI used by the GUI
 ├── download_models.py   # Fetch weights from Hugging Face

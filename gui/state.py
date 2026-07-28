@@ -59,6 +59,8 @@ class ProjectState:
     remove_blue: bool = True
     reject_dark_artifacts: bool = True
     normalize_bg: bool = True
+    # Interactive (method C): "leaf_only" | "leaf_scale"
+    interactive_click_mode: str = "leaf_scale"
     # Legacy path field (kept so old config.json still loads)
     fastsam_model: str = ""
 

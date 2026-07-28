@@ -35,6 +35,9 @@ def process_folder(
     if file:
         candidate = input_dir / file
         paths = [candidate] if candidate in paths else []
+        if not paths:
+            print(f"[UNET-Shape] Image not found in {input_dir}: {file}")
+            return 0
     if not paths:
         print(f"[UNET-Shape] No images found in {input_dir}")
         return 0
@@ -130,7 +133,7 @@ def main() -> int:
         device=device,
     )
 
-    return 0 if process_folder(
+    n_masks = process_folder(
         Path(args.input),
         Path(args.output),
         model,
@@ -141,7 +144,12 @@ def main() -> int:
         refine=bool(infer.get("refine", True)) and not args.no_refine,
         bridge_max_growth=float(infer.get("bridge_max_growth", 0.08)),
         file=args.file,
-    ) >= 0 else 1
+    )
+    if n_masks == 0:
+        # Nothing to hand to Analysis: no input images, or every image failed.
+        print("[UNET-Shape] ERROR: no leaf masks were produced.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

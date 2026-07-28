@@ -23,6 +23,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+packaging/*.spec.bak
 
 # Installer / test / coverage
 pip-log.txt

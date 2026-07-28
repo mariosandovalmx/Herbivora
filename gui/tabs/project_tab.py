@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 from pathlib import Path
 
 import customtkinter as ctk
 
 from gui.paths import (
+    MODELS_DIR,
     REPO_ROOT,
     analyzed_dir,
     auto_detect_models,
@@ -311,12 +313,11 @@ class ProjectTab(ctk.CTkFrame):
         # ── Action buttons ────────────────────────────────────────────────
         btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
         btn_row.grid(row=9, column=0, sticky="ew", pady=12)
-        ctk.CTkButton(btn_row, text="Check installation", command=self._check_install).pack(
-            side="left", padx=4
+        self._check_install_btn = ctk.CTkButton(
+            btn_row, text="Check installation", command=self._check_install
         )
-        ctk.CTkButton(btn_row, text="Open output folder", command=self._open_output).pack(
-            side="left", padx=4
-        )
+        self._check_install_btn.pack(side="left", padx=4)
+        self._install_check_busy = False
 
         # ── Status ────────────────────────────────────────────────────────
         self._status_label = ctk.CTkLabel(scroll, text="", justify="left", anchor="w")
@@ -374,17 +375,17 @@ class ProjectTab(ctk.CTkFrame):
         if found == total:
             self._models_icon.configure(text="✅")
             self._models_status_label.configure(
-                text=f"All {total} GUI models detected (MobileSAM, Contour U-Net, Damage U-Net)"
+                text=f"All {total} models detected automatically"
             )
         elif found > 0:
             self._models_icon.configure(text="⚠️")
             self._models_status_label.configure(
-                text=f"{found}/{total} GUI models found — check Advanced Options below"
+                text=f"{found}/{total} models found — check Advanced Options below"
             )
         else:
             self._models_icon.configure(text="❌")
             self._models_status_label.configure(
-                text="No GUI models found — set paths manually in Advanced Options"
+                text="No models found — set paths manually in Advanced Options"
             )
             self._adv_section.expand()
 
@@ -418,7 +419,7 @@ class ProjectTab(ctk.CTkFrame):
         self._update_models_badge()
 
     def _set_contour_unet_path(self, path: str) -> None:
-        """Keep Project Contour U-Net and Contour-tab checkpoint on the same file."""
+        """Store Contour U-Net weights path (used by the Contour tab at run time)."""
         path = path.strip().strip("\"'")
         if not path:
             return
@@ -695,6 +696,8 @@ class ProjectTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def _check_install(self) -> None:
+        if self._install_check_busy:
+            return
         self.sync_to_state()
         lines = [f"Python: {sys.version.split()[0]}", f"Project root: {REPO_ROOT}"]
 
@@ -714,6 +717,7 @@ class ProjectTab(ctk.CTkFrame):
             "pycocotools": "COCO Tools (pycocotools)",
             "tqdm": "Progress Bar (tqdm)",
             "fire": "CLI Fire (fire)",
+            "huggingface_hub": "Hugging Face Hub (huggingface_hub)",
         }
 
         for mod, label in modules_to_check.items():
@@ -730,21 +734,6 @@ class ProjectTab(ctk.CTkFrame):
             except ImportError:
                 lines.append(f"{label}: MISSING")
                 missing.append(label)
-
-        # Check GUI models from auto-detection
-        role_labels = {
-            "mobilesam": "MobileSAM",
-            "unet_shape": "Contour U-Net",
-            "damage": "Damage U-Net",
-        }
-        detected = auto_detect_models()
-        for role, path in detected.items():
-            p = Path(str(path)) if path else None
-            label = role_labels.get(role, role.upper())
-            if p and p.is_file():
-                lines.append(f"{label}: OK — {p.name}")
-            else:
-                lines.append(f"{label}: NOT found — {p}")
 
         from tkinter import messagebox
 
@@ -783,28 +772,113 @@ class ProjectTab(ctk.CTkFrame):
                     )
                 self.load_from_state()
                 return
-            else:
-                messagebox.showinfo(
-                    "Manual Installation Instructions",
-                    "To run HerbivoR correctly, you must install the missing libraries.\n"
-                    "You can do this by executing one of the following options:\n\n"
-                    "Option A (Recommended):\n"
-                    "Run install.bat (Windows) or install.sh (macOS/Linux) in the HerbivoR folder.\n\n"
-                    "Option B (Command Line):\n"
-                    "Open a terminal in the project directory, activate your virtual environment, and run:\n"
-                    "  pip install -r requirements.txt\n"
-                    "  python download_models.py"
+            messagebox.showinfo(
+                "Manual Installation Instructions",
+                "To run HerbivoR correctly, you must install the missing libraries.\n"
+                "You can do this by executing one of the following options:\n\n"
+                "Option A (Recommended):\n"
+                "Run install.bat (Windows) or install.sh (macOS/Linux) in the HerbivoR folder.\n\n"
+                "Option B (Command Line):\n"
+                "Open a terminal in the project directory, activate your virtual environment, and run:\n"
+                "  pip install -r requirements.txt\n"
+                "  python download_models.py"
+            )
+            return
+
+        # Dependencies OK — ensure model weights (download missing into models/).
+        self._start_model_ensure(lines)
+
+    def _start_model_ensure(self, dep_lines: list[str]) -> None:
+        """Download missing weights in a background thread, then show the report."""
+        self._install_check_busy = True
+        self._check_install_btn.configure(state="disabled", text="Downloading models…")
+        self._status_label.configure(
+            text="Checking models/ and downloading any missing weights…"
+        )
+
+        def worker() -> None:
+            # Import from repo root (same layout as CLI).
+            if str(REPO_ROOT) not in sys.path:
+                sys.path.insert(0, str(REPO_ROOT))
+            from download_models import DEFAULT_REPO, ensure_models
+
+            def log(msg: str) -> None:
+                self.after(0, lambda m=msg: self._status_label.configure(text=m[:200]))
+
+            try:
+                result = ensure_models(
+                    repo=DEFAULT_REPO,
+                    models_dir=MODELS_DIR,
+                    force=False,
+                    log=log,
+                )
+            except Exception as e:
+                self.after(
+                    0,
+                    lambda err=str(e): self._finish_model_ensure(dep_lines, None, err),
                 )
                 return
+            self.after(
+                0,
+                lambda: self._finish_model_ensure(dep_lines, result, None),
+            )
 
-        messagebox.showinfo("Check installation", "\n".join(lines))
+        threading.Thread(target=worker, daemon=True).start()
 
-    def _open_output(self) -> None:
-        self.sync_to_state()
-        out = self._state.output_path()
-        if out is None or not out.exists():
+    def _finish_model_ensure(
+        self,
+        dep_lines: list[str],
+        result,
+        error: str | None,
+    ) -> None:
+        self._install_check_busy = False
+        self._check_install_btn.configure(state="normal", text="Check installation")
+
+        lines = list(dep_lines)
+        lines.append("")
+        lines.append(f"Models folder: {MODELS_DIR}")
+
+        if error is not None:
+            lines.append(f"Model download ERROR: {error}")
+            self._status_label.configure(text=f"Model download failed: {error}")
             from tkinter import messagebox
-            messagebox.showwarning("Notice", "The output folder does not exist yet.")
+            messagebox.showerror("Check installation", "\n".join(lines))
             return
-        from gui.open_path import open_path
-        open_path(out)
+
+        # Refresh GUI paths after download.
+        self._rescan_models()
+
+        role_labels = {
+            "mobilesam": "MobileSAM",
+            "unet_shape": "Contour U-Net",
+            "damage": "Damage U-Net",
+        }
+        detected = auto_detect_models()
+        for role, path in detected.items():
+            p = Path(str(path)) if path else None
+            label = role_labels.get(role, role.upper())
+            if p and p.is_file():
+                lines.append(f"{label}: OK — {p.name}")
+            else:
+                lines.append(f"{label}: NOT found — {p}")
+
+        if result is not None:
+            lines.append("")
+            lines.append(f"Download: {result.ok}/{result.total} ready")
+            if result.errors:
+                lines.append("Download issues:")
+                lines.extend(result.errors)
+
+        if result is not None and result.success:
+            self._status_label.configure(text="Installation OK — all models ready.")
+        else:
+            self._status_label.configure(
+                text="Some models are missing or failed to download. See details."
+            )
+
+        from tkinter import messagebox
+
+        if result is not None and not result.success:
+            messagebox.showwarning("Check installation", "\n".join(lines))
+        else:
+            messagebox.showinfo("Check installation", "\n".join(lines))

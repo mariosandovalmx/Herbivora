@@ -27,6 +27,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from image_io import VALID_IMAGE_EXTENSIONS as VALID_EXT, load_bgr  # noqa: E402
+from segmentation.scale_metadata import write_scale_metadata  # noqa: E402
 NESTED_DUP_RE = re.compile(r"_white_bg_leaf_\d+_white_bg$", re.IGNORECASE)
 DEFAULT_MAX_LEAF_AREA_RATIO = 0.62
 
@@ -230,19 +231,33 @@ def main() -> None:
         default=512, 
         help="Pad to square and resize to this size (0 to disable)",
     )
+    parser.add_argument(
+        "--scale-source",
+        choices=("original_photo", "derived_image"),
+        default="original_photo",
+        help=(
+            "Whether --input holds the user's photos (scale calibration can be "
+            "mapped into white_bg pixels) or images already derived from them."
+        ),
+    )
     args = parser.parse_args()
 
     input_dir = args.input.resolve()
     out_root = args.output.resolve()
     white_bg_dir = out_root / "white_bg"
     masks_dir = out_root / "masks"
+    metadata_dir = out_root / "metadata"
 
     if args.clean_output and out_root.exists():
         shutil.rmtree(white_bg_dir, ignore_errors=True)
         shutil.rmtree(masks_dir, ignore_errors=True)
+        # Metadata carries the per-image scale factor; leaving entries from a
+        # previous segmentation method would calibrate against the wrong images.
+        shutil.rmtree(metadata_dir, ignore_errors=True)
 
     white_bg_dir.mkdir(parents=True, exist_ok=True)
     masks_dir.mkdir(parents=True, exist_ok=True)
+    metadata_dir.mkdir(parents=True, exist_ok=True)
 
     images = sorted(p for p in input_dir.iterdir() if p.is_file() and p.suffix.lower() in VALID_EXT)
     if not images:
@@ -284,21 +299,33 @@ def main() -> None:
         bgr_out = bgr.copy()
         bgr_out[mask == 0] = 255
 
+        src_h, src_w = bgr_out.shape[:2]
+        scale_factor = 1.0
         if args.output_size > 0:
-            h, w = bgr_out.shape[:2]
-            side = max(h, w)
+            side = max(src_h, src_w)
             padded_bgr = np.ones((side, side, 3), dtype=np.uint8) * 255
             padded_mask = np.zeros((side, side), dtype=np.uint8)
-            ph = (side - h) // 2
-            pw = (side - w) // 2
-            padded_bgr[ph: ph + h, pw: pw + w] = bgr_out
-            padded_mask[ph: ph + h, pw: pw + w] = mask
+            ph = (side - src_h) // 2
+            pw = (side - src_w) // 2
+            padded_bgr[ph: ph + src_h, pw: pw + src_w] = bgr_out
+            padded_mask[ph: ph + src_h, pw: pw + src_w] = mask
             bgr_out = cv2.resize(padded_bgr, (args.output_size, args.output_size), interpolation=cv2.INTER_AREA)
             mask = cv2.resize(padded_mask, (args.output_size, args.output_size), interpolation=cv2.INTER_NEAREST)
+            scale_factor = args.output_size / float(side)
 
+        out_h, out_w = bgr_out.shape[:2]
         out_img_name = f"{leaf_id}_white_bg{img_path.suffix.lower()}"
         cv2.imwrite(str(white_bg_dir / out_img_name), bgr_out)
         cv2.imwrite(str(masks_dir / f"{leaf_id}_mask.png"), mask)
+        write_scale_metadata(
+            metadata_dir / f"{stem}.json",
+            image_id=stem,
+            source_size=(src_w, src_h),
+            output_size=(out_w, out_h),
+            scale_factor=scale_factor,
+            scale_source=args.scale_source,
+            output_path=white_bg_dir / out_img_name,
+        )
         print(
             f"  OK {img_path.name} -> {leaf_id}_mask.png "
             f"({meta.get('area_px', 0):,} px, {meta.get('area_ratio', 0)*100:.1f}% img){filled_note}{warn}"
