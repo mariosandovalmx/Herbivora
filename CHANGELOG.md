@@ -5,6 +5,14 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] — 2026-07-28
+
+### Changed
+- Relicensed from MIT to **PolyForm Noncommercial License 1.0.0**: free for
+  noncommercial research and education; commercial use requires prior written
+  permission; attribution required (see `LICENSE`, `CITATION.cff`).
+- Installer welcome text and README updated to reflect the new terms.
+
 ## [1.3.0] — 2026-07-28
 
 ### Added

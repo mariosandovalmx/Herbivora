@@ -203,6 +203,16 @@ For a source-folder install, delete the HerbivoR directory and (optional) `%LOCA
 
 ---
 
+## License and citation
+
+HerbivoR is free for **noncommercial research and education**
+([PolyForm Noncommercial License 1.0.0](LICENSE)).
+
+- **Commercial use** (selling the software, paid services, commercial products/workflows) requires **prior written permission** from the copyright holder.
+- If you use HerbivoR in a **publication, thesis, or presentation**, you **must cite / credit** it — see [CITATION.cff](CITATION.cff).
+
+---
+
 ## Getting help
 
 - Repository: https://github.com/mariosandovalmx/HerbivoR  

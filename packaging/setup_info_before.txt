@@ -1,5 +1,10 @@
 Welcome to the HerbivoR installer.
 
+LICENSE (summary): HerbivoR is free for noncommercial research and education.
+Commercial use requires prior written permission from the copyright holder.
+If you use HerbivoR in a publication or presentation, you must give credit
+(see CITATION.cff). Full terms are shown on the License page of this Setup.
+
 After this Setup finishes copying files, a second window will open to:
 
   1. Install a private Python runtime if needed (you do not need to install Python yourself)

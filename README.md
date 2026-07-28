@@ -68,7 +68,12 @@ Results appear under `{output}/analyzed/` (`results.csv` + overlay images).
 
 ## License
 
-See [LICENSE](LICENSE).
+HerbivoR is licensed under the **PolyForm Noncommercial License 1.0.0** for
+**noncommercial research and education** only. Commercial use requires prior
+written permission from the copyright holder. If you use HerbivoR in a
+publication or presentation, you must cite / credit it.
+
+See [LICENSE](LICENSE) and [CITATION.cff](CITATION.cff).
 
 ## Citation
 

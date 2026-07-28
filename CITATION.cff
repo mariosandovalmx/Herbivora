@@ -1,6 +1,9 @@
 cff-version: 1.2.0
 title: HerbivoR
-message: If you use this software, please cite it as below.
+message: >
+  If you use this software, you must cite it as below (required under the
+  HerbivoR noncommercial license). Commercial use requires prior written
+  permission from the copyright holder.
 type: software
 authors:
   - family-names: Sandoval
@@ -8,9 +11,9 @@ authors:
     # orcid: https://orcid.org/0000-0000-0000-0000
 repository-code: https://github.com/mariosandovalmx/HerbivoR
 url: https://huggingface.co/mariosandovalmx/HerbivoR
-license: MIT
-version: 1.0.0
-date-released: 2026-07-27
+license: PolyForm-Noncommercial-1.0.0
+version: 1.3.1
+date-released: 2026-07-28
 abstract: >
   HerbivoR is a desktop GUI for leaf herbivory quantification from photographs,
   combining BiRefNet + MobileSAM segmentation, UNET Shape contour reconstruction,
