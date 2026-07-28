@@ -146,6 +146,9 @@ Replace `mariosandovalmx` with your Hugging Face username if different, and upda
 For a quick try **without installing Python** on a second Windows machine:
 
 1. Download **`HerbivoR-windows-vX.Y.Z.zip`** from the [GitHub Releases](https://github.com/mariosandovalmx/HerbivoR/releases) page (private repo: sign in with an account that has access), **or** copy the ZIP via USB.
+   - If the release has split parts (`.zip.001` + `.zip.002`), join them first with:
+     `copy /b HerbivoR-windows-vX.Y.Z.zip.001+HerbivoR-windows-vX.Y.Z.zip.002 HerbivoR-windows-vX.Y.Z.zip`
+     (GitHub’s per-file limit is 2 GB; the full Windows build is larger.)
 2. Extract the ZIP to a folder with write permission (e.g. `Documents\HerbivoR`).
 3. Run **`HerbivoR.exe`**.
 4. In **Project → Check installation**, let it download the three weights into `models/` next to the exe (needs internet the first time).
