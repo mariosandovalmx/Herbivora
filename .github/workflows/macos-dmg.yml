@@ -1,0 +1,119 @@
+# Build HerbivoR-v*.dmg on a macOS runner and attach it to the GitHub Release.
+# Also writes SHA256SUMS (DMG + any HerbivoR-Setup-*.exe already on the release).
+#
+# Triggers:
+#   - When a Release is published (tag push + release create)
+#   - Manual: Actions → "macOS DMG" → Run workflow (enter tag, e.g. v1.3.4)
+#
+# No local Mac required. Windows maintainers publish the Release; CI builds the DMG.
+
+name: macOS DMG
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build for (e.g. v1.3.4)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-dmg:
+    runs-on: macos-latest
+    steps:
+      - name: Resolve tag
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "ERROR: no release tag"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building DMG for tag: $TAG"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+
+      - name: Build DMG
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x packaging/build_macos_dmg.sh
+          ./packaging/build_macos_dmg.sh
+          VER="$(tr -d '[:space:]' < VERSION)"
+          DMG="$GITHUB_WORKSPACE/dist/HerbivoR-v${VER}.dmg"
+          test -f "$DMG"
+          SIZE="$(stat -f%z "$DMG")"
+          echo "DMG size bytes: $SIZE"
+          test "$SIZE" -gt 100000
+
+          # Smoke: mount and confirm Install_HerbivoR.command is present
+          MNT="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG"
+          if [[ ! -f "$MNT/HerbivoR/Install_HerbivoR.command" ]]; then
+            echo "ERROR: Install_HerbivoR.command missing inside DMG"
+            ls -laR "$MNT" || true
+            hdiutil detach "$MNT" || true
+            exit 1
+          fi
+          hdiutil detach "$MNT"
+
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Upload DMG to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "${{ steps.meta.outputs.tag }}" \
+            "${{ steps.build.outputs.dmg }}" \
+            --clobber \
+            --repo "${{ github.repository }}"
+
+      - name: Build SHA256SUMS and upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.meta.outputs.tag }}"
+          DMG="${{ steps.build.outputs.dmg }}"
+          WORK="$(mktemp -d)"
+          cp "$DMG" "$WORK/"
+          cd "$WORK"
+
+          # Include Windows Setup.exe from the same release when present
+          gh release download "$TAG" \
+            --repo "${{ github.repository }}" \
+            --pattern 'HerbivoR-Setup-*.exe' \
+            || echo "No HerbivoR-Setup-*.exe on release yet (ok)."
+
+          {
+            shasum -a 256 HerbivoR-v*.dmg
+            if compgen -G 'HerbivoR-Setup-*.exe' > /dev/null; then
+              shasum -a 256 HerbivoR-Setup-*.exe
+            fi
+          } | tee SHA256SUMS
+
+          echo "----- SHA256SUMS -----"
+          cat SHA256SUMS
+
+          gh release upload "$TAG" SHA256SUMS \
+            --clobber \
+            --repo "${{ github.repository }}"

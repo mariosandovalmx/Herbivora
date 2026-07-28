@@ -119,7 +119,13 @@ Output: `dist\HerbivoR-Setup-vVERSION.exe` — attach to the GitHub Release.
 
 ### Build macOS DMG
 
-On a Mac:
+A native `.dmg` requires macOS (`hdiutil`). **You do not need a local Mac:** GitHub Actions builds it.
+
+1. Publish the GitHub Release for your tag (attach `HerbivoR-Setup-v*.exe` from Windows if ready).
+2. Workflow `.github/workflows/macos-dmg.yml` builds `HerbivoR-vVERSION.dmg` on `macos-latest` and uploads it, plus `SHA256SUMS`.
+3. To rebuild for an existing tag: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.4`).
+
+Optional local build (only if you have a Mac):
 
 ```bash
 chmod +x packaging/build_macos_dmg.sh
@@ -127,6 +133,8 @@ chmod +x packaging/build_macos_dmg.sh
 ```
 
 Output: `dist/HerbivoR-vVERSION.dmg`.
+
+Verify downloads with `SHA256SUMS` from the Release (`shasum -a 256 -c SHA256SUMS` on macOS/Linux; `Get-FileHash` on Windows).
 
 ### Optional PyInstaller
 
@@ -136,13 +144,13 @@ Large onedir builds are **not** the supported user channel. See [packaging/READM
 
 1. Bump `VERSION` and `CHANGELOG.md`.
 2. Commit and push `main`.
-3. Build Setup.exe / DMG when possible; attach **only** those small bootstraps (+ source ZIP is automatic).
-4. Tag and publish:
+3. Build `HerbivoR-Setup-vVERSION.exe` on Windows; attach it when creating the Release (+ source ZIP is automatic).
+4. Tag and publish — CI then attaches the macOS DMG and `SHA256SUMS`:
 
 ```bash
 git tag v1.3.0
 git push origin main --tags
-gh release create v1.3.0 --title "HerbivoR v1.3.0" --notes-file CHANGELOG.md
+gh release create v1.3.0 --title "HerbivoR v1.3.0" --notes-file CHANGELOG.md dist/HerbivoR-Setup-v1.3.0.exe
 ```
 
 Do **not** attach multi-GB PyInstaller / CUDA ZIPs to GitHub Releases (2 GB asset limit).
