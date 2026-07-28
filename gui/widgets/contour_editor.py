@@ -382,7 +382,11 @@ class ContourEditorCarousel(ImageCarousel):
 
     def _show_contour_current(self) -> None:
         if not self._paths:
-            self._show_empty("No images.\nRun segmentation / contour first.")
+            self._show_empty(
+                "No contour overlays yet.\n"
+                "Run Contour (UNET Shape) on this tab first.\n"
+                "(Segmentation alone does not create these images.)"
+            )
             return
 
         self._index = max(0, min(self._index, len(self._paths) - 1))

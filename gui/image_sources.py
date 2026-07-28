@@ -74,15 +74,16 @@ def segment_sources(state, *, include_input: bool = False) -> dict[str, Callable
 
 def contour_sources(state) -> dict[str, Callable[[], list[Path]]]:
     def overlays() -> list[Path]:
+        """Only real Contour outputs (after Run contour), never segmentation white_bg.
+
+        Falling back to white_bg made Tab 3 draw live mask outlines from
+        segmentation masks and looked like Contour had already run.
+        """
         out = state.output_path()
         if out is None:
             return []
         ov = leaf_roi_preview_dir(out) / "overlays"
-        found = _glob_sorted(ov, "*_leaf_overlay.jpg") or _glob_sorted(ov)
-        if found:
-            return found
-        # Fall back to white_bg so the Contour panel is never blank after segmentation.
-        return list_images(white_bg_dir(out))
+        return _glob_sorted(ov, "*_leaf_overlay.jpg") or _glob_sorted(ov)
 
     def white_bg() -> list[Path]:
         out = state.output_path()
