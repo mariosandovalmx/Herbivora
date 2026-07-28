@@ -68,12 +68,16 @@ Results appear under `{output}/analyzed/` (`results.csv` + overlay images).
 
 ## License
 
-HerbivoR is licensed under the **PolyForm Noncommercial License 1.0.0** for
-**noncommercial research and education** only. Commercial use requires prior
-written permission from the copyright holder. If you use HerbivoR in a
-publication or presentation, you must cite / credit it.
+HerbivoR **software** and **HerbivoR-trained U-Net weights** are licensed under the
+**PolyForm Noncommercial License 1.0.0** for **noncommercial research and education**
+only. Commercial use requires prior written permission from the copyright holder.
+If you use HerbivoR (or its trained weights) in a publication or presentation, you
+must cite / credit it.
 
-See [LICENSE](LICENSE) and [CITATION.cff](CITATION.cff).
+Third-party components (e.g. MobileSAM, BiRefNet) remain under their own licenses.
+
+See [LICENSE](LICENSE) and [CITATION.cff](CITATION.cff). Model card:
+https://huggingface.co/mariosandovalmx/HerbivoR
 
 ## Citation
 

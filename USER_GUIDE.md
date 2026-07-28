@@ -205,11 +205,15 @@ For a source-folder install, delete the HerbivoR directory and (optional) `%LOCA
 
 ## License and citation
 
-HerbivoR is free for **noncommercial research and education**
+HerbivoR **software** and **HerbivoR-trained model weights** (`best_unet_shape.pth`,
+`best_model.pth`) are free for **noncommercial research and education**
 ([PolyForm Noncommercial License 1.0.0](LICENSE)).
 
 - **Commercial use** (selling the software, paid services, commercial products/workflows) requires **prior written permission** from the copyright holder.
-- If you use HerbivoR in a **publication, thesis, or presentation**, you **must cite / credit** it — see [CITATION.cff](CITATION.cff).
+- If you use HerbivoR (or its trained weights) in a **publication, thesis, or presentation**, you **must cite / credit** it — see [CITATION.cff](CITATION.cff).
+- Third-party weights (MobileSAM, BiRefNet) keep their own licenses (e.g. Apache-2.0).
+
+Model card on Hugging Face: https://huggingface.co/mariosandovalmx/HerbivoR
 
 ---
 
