@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -20,10 +22,86 @@ _BIREFNET_CACHE_DIR = _PKG_MODELS_DIR / "hf_cache"
 _BIREFNET_REPO_ID = "ZhengPeng7/BiRefNet_lite"
 MOBILESAM_WEIGHTS = _REPO_ROOT / "models" / "mobile_sam.pt"
 
+# Hub config for BiRefNet_lite must keep auto_map so transformers can load
+# remote code. Older/partial caches sometimes only have weights + a bare
+# config.json → "Should have a model_type key in its config.json".
+_BIREFNET_AUTO_MAP = {
+    "AutoConfig": "BiRefNet_config.BiRefNetConfig",
+    "AutoModelForImageSegmentation": "birefnet.BiRefNet",
+}
+_BIREFNET_REMOTE_FILES = ("config.json", "BiRefNet_config.py", "birefnet.py", "model.safetensors")
+
+
+def _birefnet_snapshot_dirs() -> list[Path]:
+    repo_dir = _BIREFNET_CACHE_DIR / f"models--{_BIREFNET_REPO_ID.replace('/', '--')}"
+    if not repo_dir.is_dir():
+        return []
+    return sorted(p for p in repo_dir.glob("snapshots/*") if p.is_dir())
+
+
+def _config_supports_remote_birefnet(config_path: Path) -> bool:
+    try:
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    auto_map = cfg.get("auto_map")
+    if not isinstance(auto_map, dict):
+        return False
+    return all(auto_map.get(k) == v for k, v in _BIREFNET_AUTO_MAP.items())
+
+
+def _birefnet_snapshot_is_complete(snapshot: Path) -> bool:
+    if not all((snapshot / name).is_file() for name in _BIREFNET_REMOTE_FILES):
+        return False
+    return _config_supports_remote_birefnet(snapshot / "config.json")
+
 
 def _birefnet_is_cached() -> bool:
-    repo_dir = _BIREFNET_CACHE_DIR / f"models--{_BIREFNET_REPO_ID.replace('/', '--')}"
-    return any(repo_dir.glob("snapshots/*/model.safetensors"))
+    return any(_birefnet_snapshot_is_complete(s) for s in _birefnet_snapshot_dirs())
+
+
+def _repair_birefnet_configs() -> None:
+    """Ensure local BiRefNet config.json can be loaded by modern transformers."""
+    for snapshot in _birefnet_snapshot_dirs():
+        config_path = snapshot / "config.json"
+        if not config_path.is_file():
+            continue
+        try:
+            cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        changed = False
+        auto_map = cfg.get("auto_map")
+        if not isinstance(auto_map, dict):
+            cfg["auto_map"] = dict(_BIREFNET_AUTO_MAP)
+            changed = True
+        else:
+            for key, value in _BIREFNET_AUTO_MAP.items():
+                if auto_map.get(key) != value:
+                    auto_map[key] = value
+                    changed = True
+            cfg["auto_map"] = auto_map
+        # Class attribute in BiRefNet_config.py; also write it into JSON so
+        # transformers does not fall through to the "missing model_type" error
+        # when remote-code resolution fails for any reason.
+        if cfg.get("model_type") != "SegformerForSemanticSegmentation":
+            cfg["model_type"] = "SegformerForSemanticSegmentation"
+            changed = True
+        if cfg.get("architectures") != ["BiRefNet"]:
+            cfg["architectures"] = ["BiRefNet"]
+            changed = True
+        if changed:
+            config_path.write_text(
+                json.dumps(cfg, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+
+
+def _invalidate_incomplete_birefnet_cache() -> None:
+    """Drop incomplete snapshots so the next load re-downloads from the Hub."""
+    for snapshot in _birefnet_snapshot_dirs():
+        if not _birefnet_snapshot_is_complete(snapshot):
+            shutil.rmtree(snapshot, ignore_errors=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -59,14 +137,39 @@ def load_birefnet(device: torch.device):
 
     _PKG_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     _BIREFNET_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    _repair_birefnet_configs()
     cached = _birefnet_is_cached()
 
-    model = AutoModelForImageSegmentation.from_pretrained(
-        _BIREFNET_REPO_ID,
-        trust_remote_code=True,
-        cache_dir=str(_BIREFNET_CACHE_DIR),
-        local_files_only=cached,
-    )
+    def _from_pretrained(*, local_only: bool):
+        return AutoModelForImageSegmentation.from_pretrained(
+            _BIREFNET_REPO_ID,
+            trust_remote_code=True,
+            cache_dir=str(_BIREFNET_CACHE_DIR),
+            local_files_only=local_only,
+        )
+
+    try:
+        model = _from_pretrained(local_only=cached)
+    except Exception as first_err:
+        # Common failure: partial cache (weights present, config/auto_map missing)
+        # with local_files_only=True. Repair config, invalidate junk, retry online.
+        _repair_birefnet_configs()
+        err_text = str(first_err)
+        if "model_type" in err_text or "Unrecognized model" in err_text:
+            _invalidate_incomplete_birefnet_cache()
+        try:
+            model = _from_pretrained(local_only=False)
+        except Exception as second_err:
+            raise RuntimeError(
+                "Failed to load BiRefNet_lite from Hugging Face "
+                f"({_BIREFNET_REPO_ID}).\n"
+                f"First error: {first_err}\n"
+                f"Retry error: {second_err}\n"
+                "Try deleting the folder "
+                f"{_BIREFNET_CACHE_DIR} and run again with internet access."
+            ) from second_err
+
     model.to(device).eval()
     return model
 
