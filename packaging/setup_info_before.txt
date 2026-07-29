@@ -5,15 +5,10 @@ Commercial use requires prior written permission from the copyright holder.
 If you use HerbivoR in a publication or presentation, you must give credit
 (see CITATION.cff). Full terms are shown on the License page of this Setup.
 
-After files are copied, Setup will automatically:
+After files are copied, Setup will automatically install Python, packages, and
+models (internet required, usually 5–20 minutes). Please wait — do not close
+the progress window until it finishes.
 
-  1. Install a private Python runtime with Tcl/Tk (you do not need Python yourself)
-  2. Detect an NVIDIA GPU and install the matching PyTorch build
-  3. Install application libraries
-  4. Download model weights (~226 MB)
-  5. Create shortcuts with the leaf icon
-
-Please wait — this step needs internet and usually takes 5–20 minutes.
-Do not close the console window until it finishes.
+On the final page you can optionally check "Launch HerbivoR".
 
 On PCs without an NVIDIA GPU, CPU mode is selected automatically.

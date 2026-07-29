@@ -53,10 +53,10 @@ Name: "{autodesktop}\HerbivoR"; Filename: "{app}\HerbivoR.bat"; WorkingDir: "{ap
 Name: "{group}\Uninstall HerbivoR"; Filename: "{uninstallexe}"
 
 [Run]
-; Wait until deps finish — otherwise users launch HerbivoR before .venv exists.
-Filename: "{app}\Install_HerbivoR.bat"; Parameters: "/auto"; StatusMsg: "Installing Python, packages, and models (5–20 min, internet required)..."; Flags: waituntilterminated postinstall runasoriginaluser
-Filename: "{app}\HerbivoR.bat"; Description: "Launch HerbivoR"; Flags: nowait postinstall skipifsilent unchecked
-Filename: "{app}\HerbivoR.lnk"; Description: "Launch HerbivoR (leaf icon)"; Flags: nowait postinstall skipifdoesntexist skipifsilent unchecked shellexec
+; Always run during Setup (no checkbox). Must finish before the Finished page.
+Filename: "{app}\Install_HerbivoR.bat"; Parameters: "/auto"; StatusMsg: "Installing Python, packages, and models (5–20 min, internet required)..."; Flags: waituntilterminated runasoriginaluser
+; Only optional checkbox on the Finished page:
+Filename: "{app}\HerbivoR.bat"; Description: "Launch HerbivoR"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\.venv"
