@@ -144,7 +144,9 @@ Large onedir builds are **not** the supported user channel. See [packaging/READM
 
 1. Bump `VERSION` and `CHANGELOG.md`.
 2. Commit and push `main`.
-3. Build `HerbivoR-Setup-vVERSION.exe` on Windows; attach it when creating the Release (+ source ZIP is automatic).
+3. Build `HerbivoR-Setup-vVERSION.exe` on Windows (`packaging\build_windows_setup.bat`
+   regenerates `packaging\installer_license.txt` from `LICENSE` + `THIRD_PARTY_NOTICES.md`);
+   attach the Setup when creating the Release (+ source ZIP is automatic).
 4. Tag and publish — CI then attaches the macOS DMG and `SHA256SUMS`:
 
 ```bash

@@ -1,0 +1,261 @@
+================================================================================
+HerbivoR — END-USER LICENSE AGREEMENT (Installer copy)
+================================================================================
+
+By installing or using HerbivoR you agree to the terms below.
+This file is shown by the installer; the same terms ship as LICENSE and
+THIRD_PARTY_NOTICES.md in the installation folder.
+
+Copyright (c) 2026 Mario Sandoval
+
+IMPORTANT SUMMARY (not a substitute for the full terms):
+  • Noncommercial research, education, and similar noncommercial use: permitted.
+  • Commercial use of HerbivoR or HerbivoR-trained weights: NOT permitted without
+    prior written permission from the copyright holder.
+  • Attribution required when you use HerbivoR or its trained weights in a
+    publication, thesis, presentation, or similar work (see CITATION.cff).
+  • Third-party components (MobileSAM, BiRefNet, Python packages, etc.) remain
+    under their own licenses (see Part C below).
+  • Software and weights are provided AS IS, without warranty.
+
+Commercial licensing / permissions:
+  https://github.com/mariosandovalmx/HerbivoR
+
+================================================================================
+PART A — HerbivoR LICENSE (PolyForm Noncommercial License 1.0.0 + notices)
+================================================================================
+
+HerbivoR — Noncommercial Research & Education License
+=====================================================
+
+Copyright (c) 2026 Mario Sandoval
+
+This software is licensed under the PolyForm Noncommercial License 1.0.0
+(https://polyformproject.org/licenses/noncommercial/1.0.0), with the
+required notices below.
+
+Plain-language summary (not a substitute for the full terms):
+  - You MAY use HerbivoR (application and HerbivoR-trained model weights)
+    for noncommercial research, education, personal study, and similar
+    noncommercial purposes.
+  - You may NOT use HerbivoR or its trained weights for commercial purposes
+    (including selling the software, offering it as a paid service, or using
+    it as part of a commercial product or workflow) without prior written
+    permission from the copyright holder.
+  - If you use HerbivoR or its trained weights in a publication, thesis,
+    presentation, or similar work, you MUST give appropriate credit (see
+    CITATION.cff and the Required Notices below).
+  - Third-party components (e.g. MobileSAM, BiRefNet) remain under their
+    own licenses.
+  - The software and weights are provided "AS IS", without warranty.
+
+For commercial licensing, contact the copyright holder via the project
+repository: https://github.com/mariosandovalmx/HerbivoR
+
+Required Notice: Copyright (c) 2026 Mario Sandoval — HerbivoR (software and HerbivoR-trained weights)
+Required Notice: Noncommercial use only (research / education). Commercial use requires prior written permission from the copyright holder.
+Required Notice: Attribution required — if you use HerbivoR or its trained weights in a publication or presentation, cite it (see CITATION.cff in the source distribution).
+
+---------------------------------------------------------------------------
+
+PolyForm Noncommercial License 1.0.0
+
+https://polyformproject.org/licenses/noncommercial/1.0.0
+
+## Acceptance
+
+In order to get any license under these terms, you must agree to them
+as both strict obligations and conditions to all your licenses.
+
+## Copyright License
+
+The licensor grants you a copyright license for the software to do
+everything you might do with the software that would otherwise infringe
+the licensor's copyright in it for any permitted purpose.  However, you
+may only distribute the software according to Distribution License and
+make changes or new works based on the software according to Changes and
+New Works License.
+
+## Distribution License
+
+The licensor grants you an additional copyright license to distribute
+copies of the software.  Your license to distribute covers distributing
+the software with changes and new works permitted by Changes and New
+Works License.
+
+## Notices
+
+You must ensure that anyone who gets a copy of any part of the software
+from you also gets a copy of these terms or the URL for them above, as
+well as copies of any plain-text lines beginning with `Required Notice:`
+that the licensor provided with the software.  For example:
+
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+
+## Changes and New Works License
+
+The licensor grants you an additional copyright license to make changes
+and new works based on the software for any permitted purpose.
+
+## Patent License
+
+The licensor grants you a patent license for the software that covers
+patent claims the licensor can license, or becomes able to license, that
+you would infringe by using the software.
+
+## Noncommercial Purposes
+
+Any noncommercial purpose is a permitted purpose.
+
+## Personal Uses
+
+Personal use for research, experiment, and testing for the benefit of
+public knowledge, personal study, private entertainment, hobby projects,
+amateur pursuits, or religious observance, without any anticipated
+commercial application, is use for a permitted purpose.
+
+## Noncommercial Organizations
+
+Use by any charitable organization, educational institution, public
+research organization, public safety or health organization,
+environmental protection organization, or government institution is use
+for a permitted purpose regardless of the source of funding or
+obligations resulting from the funding.
+
+## Fair Use
+
+You may have "fair use" rights for the software under the law.  These
+terms do not limit them.
+
+## No Other Rights
+
+These terms do not allow you to sublicense or transfer any of your
+licenses to anyone else, or prevent the licensor from granting licenses
+to anyone else.  These terms do not imply any other licenses.
+
+## Patent Defense
+
+If you make any written claim that the software infringes or contributes
+to infringement of any patent, your patent license for the software
+granted under these terms ends immediately.  If your company makes such
+a claim, your patent license ends immediately for work on behalf of your
+company.
+
+## Violations
+
+The first time you are notified in writing that you have violated any of
+these terms, or done anything with the software not covered by your
+licenses, your licenses can nonetheless continue if you come into full
+compliance with these terms, and take practical steps to correct past
+violations, within 32 days of receiving notice.  Otherwise, all your
+licenses end immediately.
+
+## No Liability
+
+As far as the law allows, the software comes as is, without any warranty
+or condition, and the licensor will not be liable to you for any damages
+arising out of these terms or the use or nature of the software, under
+any kind of legal claim.
+
+## Definitions
+
+The licensor is the individual or entity offering these terms, and the
+software is the software the licensor makes available under these terms.
+
+You refers to the individual or entity agreeing to these terms.
+
+Your company is any legal entity, sole proprietorship, or other kind of
+organization that you work for, plus all organizations that have control
+over, are under the control of, or are under common control with that
+organization.  Control means ownership of substantially all the assets
+of an entity, or the power to direct its management and policies by
+vote, contract, or otherwise.  Control can be direct or indirect.
+
+Your licenses are all the licenses granted to you for the software under
+these terms.
+
+Use means anything you do with the software requiring one of your
+licenses.
+
+================================================================================
+PART B — REQUIRED ATTRIBUTION (CITATION)
+================================================================================
+
+If you use HerbivoR (application and/or HerbivoR-trained model weights) in a
+publication, thesis, presentation, or similar work, you MUST give appropriate
+credit. See CITATION.cff in the HerbivoR distribution for the preferred citation
+metadata.
+
+Required Notice: Copyright (c) 2026 Mario Sandoval — HerbivoR (software and
+HerbivoR-trained weights)
+Required Notice: Noncommercial use only (research / education). Commercial use
+requires prior written permission from the copyright holder.
+Required Notice: Attribution required — if you use HerbivoR or its trained
+weights in a publication or presentation, cite it (see CITATION.cff).
+
+================================================================================
+PART C — THIRD-PARTY NOTICES
+================================================================================
+
+# Third-Party Notices — HerbivoR
+
+HerbivoR bundles or downloads software and model weights that remain under their
+**own licenses**. This notice is provided for transparency. It is **not** a
+grant of additional rights beyond each component’s license.
+
+HerbivoR application code and HerbivoR-trained weights (`best_unet_shape.pth`,
+`best_model.pth`) are under the **PolyForm Noncommercial License 1.0.0** — see
+the root `LICENSE` file. Commercial use of HerbivoR or those weights requires
+**prior written permission** from the copyright holder.
+
+---
+
+## MobileSAM
+
+| | |
+|---|---|
+| **Component** | MobileSAM weights (`mobile_sam.pt`) |
+| **Authors / project** | Chaoning Zhang et al. — [ChaoningZhang/MobileSAM](https://github.com/ChaoningZhang/MobileSAM) |
+| **Typical distribution used by HerbivoR** | [Ultralytics assets](https://github.com/ultralytics/assets/releases) (`mobile_sam.pt`) |
+| **License** | Apache License 2.0 |
+
+HerbivoR does **not** re-license MobileSAM. You must comply with Apache-2.0 for
+that component. Cite the MobileSAM / Segment Anything papers when appropriate.
+
+---
+
+## BiRefNet / BiRefNet_lite
+
+| | |
+|---|---|
+| **Component** | BiRefNet_lite (segmentation background model) |
+| **Source** | [ZhengPeng7/BiRefNet_lite](https://huggingface.co/ZhengPeng7/BiRefNet_lite) on Hugging Face |
+| **License** | As published by the model authors on Hugging Face / project repository (verify on the model card before commercial use) |
+
+HerbivoR loads BiRefNet_lite on first use. Those terms are separate from the
+HerbivoR PolyForm Noncommercial license.
+
+---
+
+## Other runtime dependencies
+
+The installed Python environment also includes open-source libraries (for
+example PyTorch, NumPy, OpenCV, CustomTkinter, Hugging Face `transformers`,
+and related packages). Each package is distributed under its own license
+(typically OSI-approved licenses such as BSD, MIT, Apache-2.0, or similar).
+
+You can inspect package licenses in your install under `.venv` (e.g. each
+package’s `LICENSE` / `METADATA` files) or on the package’s project page.
+
+---
+
+## Contact
+
+Commercial licensing for **HerbivoR** (software and HerbivoR-trained weights):
+see the project repository — https://github.com/mariosandovalmx/HerbivoR
+
+================================================================================
+END OF INSTALLER LICENSE TEXT
+================================================================================
+
+Installing HerbivoR constitutes acceptance of Parts A–C above.

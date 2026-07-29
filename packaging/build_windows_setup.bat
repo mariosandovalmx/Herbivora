@@ -22,6 +22,25 @@ if errorlevel 1 (
 )
 
 if not exist "dist" mkdir dist
+
+echo Building installer license text (LICENSE + third-party notices)...
+where python >nul 2>&1
+if not errorlevel 1 (
+    python "packaging\build_installer_license.py"
+) else if exist "%LOCALAPPDATA%\HerbivoR\Python\python.exe" (
+    "%LOCALAPPDATA%\HerbivoR\Python\python.exe" "packaging\build_installer_license.py"
+) else if exist ".venv\Scripts\python.exe" (
+    ".venv\Scripts\python.exe" "packaging\build_installer_license.py"
+) else (
+    echo ERROR: Python required to build packaging\installer_license.txt
+    exit /b 1
+)
+if errorlevel 1 exit /b 1
+if not exist "packaging\installer_license.txt" (
+    echo ERROR: packaging\installer_license.txt was not created.
+    exit /b 1
+)
+
 echo Building HerbivoR-Setup-v%VER%.exe ...
 "%ISCC%" /DMyAppVersion=%VER% "packaging\HerbivoR.iss"
 if errorlevel 1 exit /b 1

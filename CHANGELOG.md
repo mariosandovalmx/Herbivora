@@ -5,6 +5,17 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.10] — 2026-07-29
+
+### Added
+- Installers now present the **full license agreement**: PolyForm Noncommercial
+  terms (`LICENSE`), required attribution (`CITATION.cff` notices), and
+  `THIRD_PARTY_NOTICES.md` (MobileSAM, BiRefNet, other dependencies).
+- Windows Setup: copyright metadata, expanded Info Before/After pages, and a
+  combined `installer_license.txt` acceptance page.
+- Bootstrap GUI / console: explicit license acceptance before install (macOS DMG
+  and repair installs). DMG also ships `LICENSE AGREEMENT.txt` in Finder.
+
 ## [1.3.9] — 2026-07-28
 
 ### Fixed

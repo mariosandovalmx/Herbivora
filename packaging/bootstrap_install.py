@@ -44,9 +44,64 @@ WIN_PYTHON_INSTALLER = (
 
 LogFn = Callable[[str], None]
 
+LICENSE_ACCEPT_PROMPT = (
+    "I have read and agree to the HerbivoR License "
+    "(PolyForm Noncommercial 1.0.0), Required Notices, "
+    "and Third-Party Notices. Commercial use requires prior written permission."
+)
+
 
 def _default_log(msg: str) -> None:
     print(msg, flush=True)
+
+
+def load_installer_license_text(root: Path) -> str:
+    """Full agreement text for installers (LICENSE + citation + third-party)."""
+    packaged = root / "packaging" / "installer_license.txt"
+    if packaged.is_file():
+        return packaged.read_text(encoding="utf-8")
+
+    builder = root / "packaging" / "build_installer_license.py"
+    if builder.is_file():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("_herbivor_build_license", builder)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod.build_text()  # type: ignore[no-any-return]
+
+    parts: list[str] = []
+    lic = root / "LICENSE"
+    if lic.is_file():
+        parts.append(lic.read_text(encoding="utf-8"))
+    third = root / "THIRD_PARTY_NOTICES.md"
+    if third.is_file():
+        parts.append("\n\n=== THIRD-PARTY NOTICES ===\n\n")
+        parts.append(third.read_text(encoding="utf-8"))
+    if not parts:
+        return (
+            "HerbivoR — PolyForm Noncommercial License 1.0.0\n"
+            "Noncommercial research/education only. Commercial use requires "
+            "prior written permission. See LICENSE in the project repository."
+        )
+    return "".join(parts)
+
+
+def prompt_console_license_acceptance(root: Path) -> bool:
+    """Show license summary and require explicit agreement on a TTY."""
+    text = load_installer_license_text(root)
+    print("=" * 60)
+    print("HerbivoR — License agreement (required)")
+    print("=" * 60)
+    # Show enough of the full text without flooding the entire terminal.
+    preview = text if len(text) <= 12000 else text[:12000] + "\n\n[... truncated; full text in LICENSE / THIRD_PARTY_NOTICES.md ...]\n"
+    print(preview)
+    print("=" * 60)
+    print(LICENSE_ACCEPT_PROMPT)
+    print("Full files: LICENSE, THIRD_PARTY_NOTICES.md, CITATION.cff")
+    ans = input('Type "I AGREE" to accept and continue (or N to cancel): ').strip()
+    return ans.upper() == "I AGREE"
 
 
 def detect_torch_flavor(forced: str = "auto") -> tuple[str, str]:
@@ -553,8 +608,8 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
 
     win = tk.Tk()
     win.title("HerbivoR Installer")
-    win.geometry("720x480")
-    win.minsize(560, 360)
+    win.geometry("780x620")
+    win.minsize(640, 480)
 
     frm = ttk.Frame(win, padding=12)
     frm.pack(fill="both", expand=True)
@@ -563,8 +618,20 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
     ttk.Label(
         frm,
         text="This installer sets up a private environment, downloads PyTorch and models,\n"
-        "and creates a desktop shortcut. Internet required (about 5–20 minutes).",
+        "and creates a desktop shortcut. Internet required (about 5–20 minutes).\n"
+        "You must accept the license terms below before installing.",
     ).pack(anchor="w", pady=(4, 8))
+
+    lic_frame = ttk.LabelFrame(frm, text="License agreement (scroll and read)")
+    lic_frame.pack(fill="both", expand=True, pady=(0, 6))
+    lic_box = scrolledtext.ScrolledText(lic_frame, height=12, wrap="word", font=("Consolas", 9))
+    lic_box.pack(fill="both", expand=True, padx=4, pady=4)
+    lic_box.insert("1.0", load_installer_license_text(root))
+    lic_box.configure(state="disabled")
+
+    agree_var = tk.BooleanVar(value=False)
+    agree_chk = ttk.Checkbutton(frm, text=LICENSE_ACCEPT_PROMPT, variable=agree_var)
+    agree_chk.pack(anchor="w", pady=(0, 6))
 
     flavor_var = tk.StringVar(value=flavor_arg)
     opts = ttk.Frame(frm)
@@ -577,23 +644,28 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
     ):
         ttk.Radiobutton(opts, text=label, value=val, variable=flavor_var).pack(side="left", padx=6)
 
-    status = ttk.Label(frm, text="Ready.")
+    status = ttk.Label(frm, text="Accept the license to enable Install.")
     status.pack(anchor="w", pady=(8, 4))
     bar = ttk.Progressbar(frm, mode="indeterminate")
     bar.pack(fill="x", pady=4)
 
-    log_box = scrolledtext.ScrolledText(frm, height=18, wrap="word", font=("Consolas", 9))
+    log_box = scrolledtext.ScrolledText(frm, height=10, wrap="word", font=("Consolas", 9))
     log_box.pack(fill="both", expand=True, pady=8)
     log_box.configure(state="disabled")
 
     btn_row = ttk.Frame(frm)
     btn_row.pack(fill="x")
-    start_btn = ttk.Button(btn_row, text="Install")
+    start_btn = ttk.Button(btn_row, text="Install", state="disabled")
     start_btn.pack(side="left")
     close_btn = ttk.Button(btn_row, text="Close", command=win.destroy)
     close_btn.pack(side="right")
 
     lines: list[str] = []
+
+    def _sync_install_enabled(*_args: object) -> None:
+        start_btn.configure(state=("normal" if agree_var.get() else "disabled"))
+
+    agree_var.trace_add("write", _sync_install_enabled)
 
     def append_log(msg: str) -> None:
         lines.append(msg)
@@ -617,7 +689,9 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
                 messagebox.showinfo(
                     "HerbivoR",
                     "Installation completed.\n\n"
-                    "Use the HerbivoR shortcut (leaf icon) to open the app.",
+                    "Use the HerbivoR shortcut (leaf icon) to open the app.\n\n"
+                    "License files remain in the install folder:\n"
+                    "LICENSE, THIRD_PARTY_NOTICES.md, CITATION.cff",
                 )
 
             win.after(0, _ok)
@@ -633,9 +707,17 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
             win.after(0, _err)
 
     def on_start() -> None:
+        if not agree_var.get():
+            messagebox.showwarning(
+                "License required",
+                "You must accept the HerbivoR license and third-party notices "
+                "before installing.",
+            )
+            return
         start_btn.configure(state="disabled")
         status.configure(text="Installing… please wait.")
         bar.start(12)
+        append_log("License accepted by user.")
         threading.Thread(target=worker, daemon=True).start()
 
     start_btn.configure(command=on_start)
@@ -658,7 +740,11 @@ def main(argv: list[str] | None = None) -> int:
         help="PyTorch build (default: auto-detect NVIDIA on Windows/Linux)",
     )
     parser.add_argument("--gui", action="store_true", help="Show a simple progress window")
-    parser.add_argument("--yes", action="store_true", help="Non-interactive console install")
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Non-interactive console install (assumes license already accepted, e.g. Setup.exe)",
+    )
     parser.add_argument("--skip-models", action="store_true")
     parser.add_argument("--skip-shortcuts", action="store_true")
     args = parser.parse_args(argv)
@@ -666,12 +752,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.gui:
         return _run_gui(args.root, args.flavor)
 
-    if not args.yes and sys.stdin.isatty():
+    if args.yes:
+        _default_log(
+            "Proceeding under HerbivoR LICENSE + THIRD_PARTY_NOTICES.md "
+            "(non-interactive / already accepted via Setup)."
+        )
+    elif sys.stdin.isatty():
         print("HerbivoR bootstrap installer")
         print(f"Root: {args.root.resolve()}")
+        if not prompt_console_license_acceptance(args.root):
+            print("License not accepted — install cancelled.")
+            return 1
         flavor, note = detect_torch_flavor(args.flavor)
         print(note)
-        ans = input("Continue? [Y/n] ").strip().lower()
+        ans = input("Continue with dependency install? [Y/n] ").strip().lower()
         if ans in ("n", "no"):
             return 1
 

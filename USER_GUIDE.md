@@ -211,7 +211,10 @@ HerbivoR **software** and **HerbivoR-trained model weights** (`best_unet_shape.p
 
 - **Commercial use** (selling the software, paid services, commercial products/workflows) requires **prior written permission** from the copyright holder.
 - If you use HerbivoR (or its trained weights) in a **publication, thesis, or presentation**, you **must cite / credit** it — see [CITATION.cff](CITATION.cff).
-- Third-party weights (MobileSAM, BiRefNet) keep their own licenses (e.g. Apache-2.0).
+- Third-party weights (MobileSAM, BiRefNet) keep their own licenses (e.g. Apache-2.0) — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Installers display the full agreement and require acceptance. After install, keep
+`LICENSE`, `THIRD_PARTY_NOTICES.md`, and `CITATION.cff` in the application folder.
 
 Model card on Hugging Face: https://huggingface.co/mariosandovalmx/HerbivoR
 

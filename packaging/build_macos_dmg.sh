@@ -32,6 +32,13 @@ rsync -a \
 chmod +x "$STAGE/Install_HerbivoR.command" "$STAGE/install.sh" "$STAGE/herbivor.sh" \
   "$STAGE/packaging/create_macos_app.sh" "$STAGE/packaging/build_macos_dmg.sh" || true
 
+# Full license agreement visible in Finder before install
+python3 "$ROOT/packaging/build_installer_license.py"
+cp "$ROOT/packaging/installer_license.txt" "$STAGE/LICENSE AGREEMENT.txt"
+cp "$ROOT/LICENSE" "$STAGE/LICENSE"
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$STAGE/THIRD_PARTY_NOTICES.md"
+cp "$ROOT/CITATION.cff" "$STAGE/CITATION.cff"
+
 # Finder-friendly alias name
 ln -sf Install_HerbivoR.command "$STAGE/Install HerbivoR.command" 2>/dev/null || true
 

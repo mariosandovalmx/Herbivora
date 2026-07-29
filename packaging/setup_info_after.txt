@@ -1,0 +1,10 @@
+HerbivoR was installed on this computer.
+
+License files in the installation folder (please keep them):
+  • LICENSE                 — PolyForm Noncommercial License 1.0.0 + notices
+  • THIRD_PARTY_NOTICES.md  — MobileSAM, BiRefNet, and other components
+  • CITATION.cff            — how to cite HerbivoR (required for publications)
+
+Reminder: commercial use of HerbivoR or HerbivoR-trained weights requires
+prior written permission from the copyright holder (Mario Sandoval).
+Repository: https://github.com/mariosandovalmx/HerbivoR

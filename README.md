@@ -72,11 +72,16 @@ HerbivoR **software** and **HerbivoR-trained U-Net weights** are licensed under 
 **PolyForm Noncommercial License 1.0.0** for **noncommercial research and education**
 only. Commercial use requires prior written permission from the copyright holder.
 If you use HerbivoR (or its trained weights) in a publication or presentation, you
-must cite / credit it.
+must cite / credit it (see [`CITATION.cff`](CITATION.cff)).
 
-Third-party components (e.g. MobileSAM, BiRefNet) remain under their own licenses.
+Third-party components (e.g. MobileSAM, BiRefNet) remain under their own licenses —
+see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-See [LICENSE](LICENSE) and [CITATION.cff](CITATION.cff). Model card:
+Windows/macOS installers show the **full license agreement** and require acceptance
+before install.
+
+See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
+[CITATION.cff](CITATION.cff). Model card:
 https://huggingface.co/mariosandovalmx/HerbivoR
 
 ## Citation

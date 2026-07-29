@@ -4,7 +4,7 @@
 
 | Artifact | Builder | Notes |
 |----------|---------|-------|
-| `HerbivoR-Setup-vVERSION.exe` | [`build_windows_setup.bat`](build_windows_setup.bat) + Inno Setup 6 | Unpacks source and runs `Install_HerbivoR.bat` |
+| `HerbivoR-Setup-vVERSION.exe` | [`build_windows_setup.bat`](build_windows_setup.bat) + Inno Setup 6 | Unpacks source and runs `Install_HerbivoR.bat`. License page uses [`installer_license.txt`](installer_license.txt) (built from `LICENSE` + `THIRD_PARTY_NOTICES.md`). |
 | `HerbivoR-vVERSION.dmg` | [`build_macos_dmg.sh`](build_macos_dmg.sh) via **GitHub Actions** (or any Mac) | Source tree + `Install_HerbivoR.command` |
 
 Core logic: [`bootstrap_install.py`](bootstrap_install.py) (GPU detect, private Python on Windows, venv, Torch, deps, models, shortcuts).

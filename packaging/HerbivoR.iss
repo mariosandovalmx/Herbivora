@@ -10,8 +10,9 @@
 #ifndef MyAppVersion
   #define MyAppVersion "1.3.0"
 #endif
-#define MyAppPublisher "HerbivoR"
+#define MyAppPublisher "Mario Sandoval"
 #define MyAppURL "https://github.com/mariosandovalmx/HerbivoR"
+#define MyAppCopyright "Copyright (C) 2026 Mario Sandoval"
 
 [Setup]
 AppId={{A8E3C2F1-9B4D-4E6A-8F21-HerbivoRSetup}
@@ -20,6 +21,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
+AppCopyright={#MyAppCopyright}
 DefaultDirName={localappdata}\HerbivoR
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
@@ -33,7 +35,9 @@ PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\assets\herbivor.ico
 InfoBeforeFile=..\packaging\setup_info_before.txt
-LicenseFile=..\LICENSE
+; Full agreement: LICENSE + citation + THIRD_PARTY_NOTICES (built by build_installer_license.py)
+LicenseFile=..\packaging\installer_license.txt
+InfoAfterFile=..\packaging\setup_info_after.txt
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
