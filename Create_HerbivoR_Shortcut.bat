@@ -10,6 +10,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Shortcut created: HerbivoR.lnk  ^(use this launcher for the custom icon^)
+echo Shortcut created: HerbivoR.lnk  ^(leaf icon; launches GUI without a console window^)
 pause
 exit /b 0

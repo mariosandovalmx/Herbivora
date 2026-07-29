@@ -23,17 +23,15 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 
+REM Prefer pythonw + start so this console can close (GUI only, no black window left open).
 if exist ".venv\Scripts\pythonw.exe" (
-    .venv\Scripts\pythonw.exe -m gui.main 2>>gui_error.log
-    if not errorlevel 1 goto :done
-    echo The GUI failed. Retrying with visible console...
-    .venv\Scripts\python.exe -m gui.main
-    if not errorlevel 1 goto :done
+    start "" "%~dp0.venv\Scripts\pythonw.exe" -m gui.main
+    exit /b 0
 )
 
 if exist ".venv\Scripts\python.exe" (
     .venv\Scripts\python.exe -m gui.main
-    if not errorlevel 1 goto :done
+    if not errorlevel 1 exit /b 0
 )
 
 echo HerbivoR failed to start.
@@ -41,6 +39,3 @@ echo If the window does not appear, check gui_error.log in this folder.
 echo You can also re-run Install_HerbivoR.bat to repair the install.
 pause
 exit /b 1
-
-:done
-exit /b 0

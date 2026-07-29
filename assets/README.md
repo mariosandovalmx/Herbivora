@@ -16,6 +16,8 @@ Create_HerbivoR_Shortcut.bat
 | `herbivor_256.png` | GUI header + window `iconphoto` |
 | `herbivor.ico` | Windows title bar / taskbar / `.lnk` / PyInstaller |
 
-Windows `.bat` files cannot show a custom Explorer icon. After install (or run `Create_HerbivoR_Shortcut.bat`), use **`HerbivoR.lnk`**.
+Windows `.bat` files cannot show a custom Explorer icon and briefly show a console if
+double-clicked. After install (or run `Create_HerbivoR_Shortcut.bat`), use **`HerbivoR.lnk`**,
+which targets `pythonw.exe` so only the GUI window appears.
 
 On macOS run `./packaging/create_macos_app.sh` to build **`HerbivoR.app`** with this icon.

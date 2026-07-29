@@ -49,8 +49,27 @@ def _ensure_tcl_tk_env() -> None:
             return
 
 
+def _install_crash_log() -> None:
+    """Write uncaught errors to gui_error.log (pythonw has no console)."""
+    log_path = _REPO / "gui_error.log"
+
+    def _hook(exc_type, exc, tb) -> None:  # type: ignore[no-untyped-def]
+        import traceback
+
+        try:
+            with log_path.open("a", encoding="utf-8") as fh:
+                fh.write("\n--- HerbivoR crash ---\n")
+                traceback.print_exception(exc_type, exc, tb, file=fh)
+        except OSError:
+            pass
+        sys.__excepthook__(exc_type, exc, tb)
+
+    sys.excepthook = _hook
+
+
 def main() -> None:
     _ensure_tcl_tk_env()
+    _install_crash_log()
 
     try:
         import customtkinter  # noqa: F401

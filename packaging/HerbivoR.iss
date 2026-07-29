@@ -48,15 +48,17 @@ Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createalls
 
 [Icons]
 Name: "{group}\Install or Repair HerbivoR"; Filename: "{app}\Install_HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
-Name: "{group}\HerbivoR"; Filename: "{app}\HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
-Name: "{autodesktop}\HerbivoR"; Filename: "{app}\HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"; Tasks: desktopicon
+; pythonw.exe = no black console (path exists after Install_HerbivoR.bat in [Run];
+; the .lnk is fine even if created slightly earlier — target appears before first use)
+Name: "{group}\HerbivoR"; Filename: "{app}\.venv\Scripts\pythonw.exe"; Parameters: "-m gui.main"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"
+Name: "{autodesktop}\HerbivoR"; Filename: "{app}\.venv\Scripts\pythonw.exe"; Parameters: "-m gui.main"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"; Tasks: desktopicon
 Name: "{group}\Uninstall HerbivoR"; Filename: "{uninstallexe}"
 
 [Run]
 ; Always run during Setup (no checkbox). Must finish before the Finished page.
 Filename: "{app}\Install_HerbivoR.bat"; Parameters: "/auto"; StatusMsg: "Installing Python, packages, and models (5–20 min, internet required)..."; Flags: waituntilterminated runasoriginaluser
-; Only optional checkbox on the Finished page:
-Filename: "{app}\HerbivoR.bat"; Description: "Launch HerbivoR"; Flags: nowait postinstall skipifsilent
+; Only optional checkbox on the Finished page (pythonw = GUI only, no console):
+Filename: "{app}\.venv\Scripts\pythonw.exe"; Parameters: "-m gui.main"; WorkingDir: "{app}"; Description: "Launch HerbivoR"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\.venv"
