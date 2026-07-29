@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -23,7 +24,34 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         sys.path.insert(0, meipass)
 
 
+def _ensure_tcl_tk_env() -> None:
+    """Point TCL_LIBRARY/TK_LIBRARY at a usable init.tcl when discovery fails on Windows."""
+    base = Path(getattr(sys, "base_prefix", sys.prefix))
+    tcl_env = os.environ.get("TCL_LIBRARY")
+    tk_env = os.environ.get("TK_LIBRARY")
+    if (
+        tcl_env
+        and tk_env
+        and (Path(tcl_env) / "init.tcl").is_file()
+        and (Path(tk_env) / "tk.tcl").is_file()
+    ):
+        return
+
+    pairs = [
+        (base / "tcl" / "tcl8.6", base / "tcl" / "tk8.6"),
+        (base / "lib" / "tcl8.6", base / "lib" / "tk8.6"),
+        (base / "Library" / "lib" / "tcl8.6", base / "Library" / "lib" / "tk8.6"),
+    ]
+    for tcl_dir, tk_dir in pairs:
+        if (tcl_dir / "init.tcl").is_file() and (tk_dir / "tk.tcl").is_file():
+            os.environ["TCL_LIBRARY"] = str(tcl_dir)
+            os.environ["TK_LIBRARY"] = str(tk_dir)
+            return
+
+
 def main() -> None:
+    _ensure_tcl_tk_env()
+
     try:
         import customtkinter  # noqa: F401
     except ImportError:

@@ -18,7 +18,10 @@ if exist ".venv\Scripts\python.exe" (
 )
 
 echo The .venv folder does not exist or startup failed.
-echo Please run Install.bat first.
+echo Please run Install_HerbivoR.bat (or Install.bat) first.
+echo If you see "Can't find a usable init.tcl", Tcl/Tk is missing:
+echo   1^) Delete the .venv folder in this directory
+echo   2^) Run Install_HerbivoR.bat again ^(installs a private Python with Tcl/Tk^)
 echo If the window does not appear, check gui_error.log in this folder.
 pause
 exit /b 1

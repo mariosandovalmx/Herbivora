@@ -134,21 +134,116 @@ def windows_private_python_dir() -> Path:
     return Path(local) / "HerbivoR" / "Python"
 
 
+def _configure_tcl_tk_env_for_prefix(base: Path) -> bool:
+    """Set TCL_LIBRARY/TK_LIBRARY from known layouts. Return True if init.tcl was found."""
+    pairs = [
+        (base / "tcl" / "tcl8.6", base / "tcl" / "tk8.6"),
+        (base / "lib" / "tcl8.6", base / "lib" / "tk8.6"),
+        (base / "Library" / "lib" / "tcl8.6", base / "Library" / "lib" / "tk8.6"),
+    ]
+    for tcl_dir, tk_dir in pairs:
+        if (tcl_dir / "init.tcl").is_file() and (tk_dir / "tk.tcl").is_file():
+            os.environ["TCL_LIBRARY"] = str(tcl_dir)
+            os.environ["TK_LIBRARY"] = str(tk_dir)
+            return True
+    return False
+
+
+def _tkinter_usable(exe: Path | str) -> bool:
+    """True if this interpreter can create a Tk root (needed for HerbivoR GUI)."""
+    code = (
+        "import os, sys\n"
+        "from pathlib import Path\n"
+        "base = Path(sys.base_prefix)\n"
+        "pairs = [\n"
+        " (base/'tcl'/'tcl8.6', base/'tcl'/'tk8.6'),\n"
+        " (base/'lib'/'tcl8.6', base/'lib'/'tk8.6'),\n"
+        " (base/'Library'/'lib'/'tcl8.6', base/'Library'/'lib'/'tk8.6'),\n"
+        "]\n"
+        "for tcl_dir, tk_dir in pairs:\n"
+        "  if (tcl_dir/'init.tcl').is_file() and (tk_dir/'tk.tcl').is_file():\n"
+        "    os.environ['TCL_LIBRARY']=str(tcl_dir)\n"
+        "    os.environ['TK_LIBRARY']=str(tk_dir)\n"
+        "    break\n"
+        "import tkinter as t\n"
+        "r = t.Tk(); r.withdraw(); r.destroy()\n"
+    )
+    try:
+        r = subprocess.run(
+            [str(exe), "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        return r.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+_WIN_PYTHON_INSTALL_ARGS = (
+    "/quiet",
+    "InstallAllUsers=0",
+    "PrependPath=0",
+    "Include_doc=0",
+    "Include_launcher=0",
+    "Include_test=0",
+    "Include_tools=0",
+    "Include_tcltk=1",
+    "Shortcuts=0",
+    "AssociateFiles=0",
+)
+
+
+def _install_windows_private_python(log: LogFn) -> Path:
+    target = windows_private_python_dir()
+    log(f"Installing private Python {PYTHON_VERSION} to {target} …")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        log("Removing previous private Python (incomplete or missing Tcl/Tk) …")
+        shutil.rmtree(target, ignore_errors=True)
+        target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="herbivor_py_") as tmp:
+        installer = Path(tmp) / f"python-{PYTHON_VERSION}-amd64.exe"
+        _download(WIN_PYTHON_INSTALLER, installer, log)
+        _run(
+            [str(installer), *_WIN_PYTHON_INSTALL_ARGS, f"TargetDir={target}"],
+            log,
+        )
+    private = target / "python.exe"
+    if not private.is_file() or not _python_version_ok(private):
+        raise RuntimeError(f"Private Python install failed (missing {private})")
+    if not _tkinter_usable(private):
+        raise RuntimeError(
+            f"Private Python at {private} was installed but tkinter/Tcl-Tk is not usable. "
+            "Re-run the installer, or install Python from https://www.python.org/ "
+            "with the Tcl/Tk component enabled."
+        )
+    log(f"Private Python ready: {private}")
+    return private
+
+
 def ensure_base_python(log: LogFn) -> Path:
-    """Return a usable Python 3.10+ executable (install private copy on Windows if needed)."""
+    """Return a usable Python 3.10+ with working tkinter (private copy on Windows if needed)."""
     # Prefer an already-installed private HerbivoR Python on Windows.
     if platform.system() == "Windows":
         private = windows_private_python_dir() / "python.exe"
-        if private.is_file() and _python_version_ok(private):
+        if private.is_file() and _python_version_ok(private) and _tkinter_usable(private):
             log(f"Using private Python: {private}")
             return private
+        if private.is_file():
+            log("Private Python exists but tkinter/Tcl-Tk is broken — reinstalling …")
 
-    # Prefer current interpreter if it is new enough (and not the bootstrap frozen case).
-    if _python_version_ok(sys.executable) and not getattr(sys, "frozen", False):
+    # Prefer current interpreter if it is new enough and GUI-capable.
+    if (
+        _python_version_ok(sys.executable)
+        and not getattr(sys, "frozen", False)
+        and _tkinter_usable(sys.executable)
+    ):
         log(f"Using current Python: {sys.executable}")
         return Path(sys.executable)
 
-    # Search PATH.
+    # Search PATH for a GUI-capable interpreter.
     for name in ("py", "python3", "python"):
         exe = shutil.which(name)
         if not exe:
@@ -166,51 +261,27 @@ def ensure_base_python(log: LogFn) -> Path:
                     )
                     if r.returncode == 0:
                         candidate = Path(r.stdout.strip())
-                        if candidate.is_file() and _python_version_ok(candidate):
+                        if (
+                            candidate.is_file()
+                            and _python_version_ok(candidate)
+                            and _tkinter_usable(candidate)
+                        ):
                             log(f"Using Python launcher: {candidate}")
                             return candidate
                 except (OSError, subprocess.TimeoutExpired):
                     continue
-        elif _python_version_ok(exe):
+        elif _python_version_ok(exe) and _tkinter_usable(exe):
             log(f"Using PATH Python: {exe}")
             return Path(exe)
 
     if platform.system() != "Windows":
         raise RuntimeError(
-            "Python 3.10+ was not found. On macOS install Python from "
+            "Python 3.10+ with working tkinter was not found. On macOS install Python from "
             "https://www.python.org/downloads/ or Xcode Command Line Tools, "
-            "then re-run this installer. On Linux install python3 via your package manager."
+            "then re-run this installer. On Linux install python3-tk via your package manager."
         )
 
-    # Windows: silent per-user install of official CPython.
-    target = windows_private_python_dir()
-    log(f"Installing private Python {PYTHON_VERSION} to {target} …")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="herbivor_py_") as tmp:
-        installer = Path(tmp) / f"python-{PYTHON_VERSION}-amd64.exe"
-        _download(WIN_PYTHON_INSTALLER, installer, log)
-        _run(
-            [
-                str(installer),
-                "/quiet",
-                "InstallAllUsers=0",
-                "PrependPath=0",
-                "Include_doc=0",
-                "Include_launcher=0",
-                "Include_test=0",
-                "Include_tools=0",
-                "Shortcuts=0",
-                "AssociateFiles=0",
-                f"TargetDir={target}",
-            ],
-            log,
-        )
-    private = target / "python.exe"
-    if not private.is_file() or not _python_version_ok(private):
-        raise RuntimeError(f"Private Python install failed (missing {private})")
-    log(f"Private Python ready: {private}")
-    return private
-
+    return _install_windows_private_python(log)
 
 def venv_python(root: Path) -> Path:
     if platform.system() == "Windows":
@@ -220,19 +291,27 @@ def venv_python(root: Path) -> Path:
 
 def ensure_venv(base_python: Path, root: Path, log: LogFn) -> Path:
     py = venv_python(root)
-    if py.is_file() and _python_version_ok(py):
+    if py.is_file() and _python_version_ok(py) and _tkinter_usable(py):
         log(f"Using existing venv: {py}")
         return py
     venv_dir = root / ".venv"
     if venv_dir.exists():
-        log("Removing broken .venv …")
+        if py.is_file() and _python_version_ok(py) and not _tkinter_usable(py):
+            log("Existing .venv cannot open the GUI (broken Tcl/Tk) — recreating …")
+        else:
+            log("Removing broken .venv …")
         shutil.rmtree(venv_dir, ignore_errors=True)
     log("Creating virtual environment .venv …")
     _run([str(base_python), "-m", "venv", str(venv_dir)], log, cwd=root)
     if not py.is_file():
         raise RuntimeError("venv created but python executable is missing")
+    if not _tkinter_usable(py):
+        raise RuntimeError(
+            "Virtual environment was created but tkinter/Tcl-Tk still fails. "
+            "On Windows, delete .venv and re-run Install_HerbivoR.bat so a private "
+            "Python with Tcl/Tk can be installed."
+        )
     return py
-
 
 def install_torch(py: Path, flavor: str, log: LogFn) -> None:
     log("Upgrading pip …")
@@ -386,6 +465,7 @@ def run_install(
 
 
 def _run_gui(root: Path, flavor_arg: str) -> int:
+    _configure_tcl_tk_env_for_prefix(Path(sys.base_prefix))
     import tkinter as tk
     from tkinter import messagebox, scrolledtext, ttk
 

@@ -44,7 +44,7 @@ Name: "desktopicon"; Description: "Create a Desktop shortcut after install"; Fla
 [Files]
 ; Ship the full source tree except heavy / local junk
 Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; \
-  Excludes: ".git\*,.venv\*,__pycache__\*,*.pyc,dist\*,build\*,.cursor\*,hf_cache\*,models\*.pt,models\*.pth,*.lnk,gui_error.log,.pytest_cache\*,*.egg-info\*"
+  Excludes: ".git\*,.venv\*,__pycache__\*,*.pyc,dist\*,build\*,.cursor\*,hf_cache\*,models\*.pt,models\*.pth,*.lnk,gui_error.log,debug-*.log,.pytest_cache\*,*.egg-info\*"
 
 [Icons]
 Name: "{group}\Install or Repair HerbivoR"; Filename: "{app}\Install_HerbivoR.bat"; WorkingDir: "{app}"; IconFilename: "{app}\assets\herbivor.ico"

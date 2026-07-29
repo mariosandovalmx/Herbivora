@@ -18,14 +18,20 @@ if not exist "%BOOTSTRAP%" (
 
 set "PY="
 set "PYARGS="
+set "PRIVATE=%LOCALAPPDATA%\HerbivoR\Python\python.exe"
 
-REM 1) Prefer private HerbivoR Python from a previous run
-if exist "%LOCALAPPDATA%\HerbivoR\Python\python.exe" (
-    set "PY=%LOCALAPPDATA%\HerbivoR\Python\python.exe"
+REM Always ensure a private per-user CPython with Tcl/Tk (GUI dependency).
+REM System Python installs are often missing init.tcl and break customtkinter.
+echo Ensuring private HerbivoR Python (with Tcl/Tk)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\ensure_windows_python.ps1"
+if errorlevel 1 (
+    echo WARNING: Private Python helper failed; will try system Python next.
+) else if exist "%PRIVATE%" (
+    set "PY=%PRIVATE%"
     goto :run
 )
 
-REM 2) Windows py launcher
+REM Fallback: Windows py launcher / python on PATH
 where py >nul 2>&1
 if not errorlevel 1 (
     py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)" >nul 2>&1
@@ -36,7 +42,6 @@ if not errorlevel 1 (
     )
 )
 
-REM 3) python on PATH
 where python >nul 2>&1
 if not errorlevel 1 (
     python -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)" >nul 2>&1
@@ -47,25 +52,7 @@ if not errorlevel 1 (
     )
 )
 
-echo No suitable Python found. The installer will download a private copy...
-echo This requires internet and may take a few minutes.
-echo.
-
-REM Use PowerShell to fetch a tiny bootstrap python via the official installer
-REM by invoking bootstrap_install with the Windows built-in bits — we need SOME python.
-REM Download embeddable is complex; call PowerShell to run the silent installer first.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\ensure_windows_python.ps1"
-if errorlevel 1 (
-    echo Failed to install private Python.
-    pause
-    exit /b 1
-)
-if exist "%LOCALAPPDATA%\HerbivoR\Python\python.exe" (
-    set "PY=%LOCALAPPDATA%\HerbivoR\Python\python.exe"
-    goto :run
-)
-
-echo ERROR: Private Python still missing after install.
+echo ERROR: No suitable Python found and private install failed.
 pause
 exit /b 1
 

@@ -5,6 +5,16 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] — 2026-07-28
+
+### Fixed
+- Windows GUI no longer fails with `_tkinter.TclError: Can't find a usable init.tcl`
+  when the system Python install is missing or misconfigured Tcl/Tk. The installer
+  now prefers a private per-user CPython with `Include_tcltk=1`, verifies tkinter
+  before creating `.venv`, and the app sets `TCL_LIBRARY`/`TK_LIBRARY` when needed.
+- CustomTkinter theme is applied before the main window is created so the green
+  System theme and leaf icon are stable at startup (no mid-launch recolor).
+
 ## [1.3.5] — 2026-07-28
 
 ### Fixed

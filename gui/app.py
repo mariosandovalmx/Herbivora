@@ -26,6 +26,11 @@ from gui.widgets.split_pane import MainSplitPane
 
 class HerbivoRApp(ctk.CTk):
     def __init__(self) -> None:
+        # Theme must be set before the CTk window is constructed; otherwise the
+        # root keeps the default palette and then visibly recolors (icon can drop).
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("green")
+
         super().__init__()
         self.title("HerbivoR — Leaf Damage Analysis")
         self.geometry("1320x820")
@@ -34,9 +39,6 @@ class HerbivoRApp(ctk.CTk):
         from gui.icons import apply_window_icon, load_header_image
 
         apply_window_icon(self)
-
-        ctk.set_appearance_mode("System")
-        ctk.set_default_color_theme("green")
 
         self._state = load_config()
         self._runner = JobRunner(self._on_log, self._on_job_done)
