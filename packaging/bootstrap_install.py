@@ -28,9 +28,18 @@ from collections.abc import Callable
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PYTHON_VERSION = "3.12.10"
+PYTHON_VERSION = "3.12.13"
+PYTHON_STANDALONE_TAG = "20260303"
+WIN_PYTHON_STANDALONE_URLS = (
+    "https://github.com/astral-sh/python-build-standalone/releases/download/"
+    f"{PYTHON_STANDALONE_TAG}/cpython-{PYTHON_VERSION}+{PYTHON_STANDALONE_TAG}"
+    "-x86_64-pc-windows-msvc-install_only.tar.gz",
+    "https://github.com/indygreg/python-build-standalone/releases/download/"
+    f"{PYTHON_STANDALONE_TAG}/cpython-{PYTHON_VERSION}+{PYTHON_STANDALONE_TAG}"
+    "-x86_64-pc-windows-msvc-install_only.tar.gz",
+)
 WIN_PYTHON_INSTALLER = (
-    f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-amd64.exe"
+    "https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe"
 )
 
 LogFn = Callable[[str], None]
@@ -187,37 +196,110 @@ _WIN_PYTHON_INSTALL_ARGS = (
     "PrependPath=0",
     "Include_doc=0",
     "Include_launcher=0",
+    "InstallLauncherAllUsers=0",
     "Include_test=0",
     "Include_tools=0",
+    "Include_pip=1",
     "Include_tcltk=1",
+    "Include_lib=1",
+    "Include_exe=1",
     "Shortcuts=0",
     "AssociateFiles=0",
+    "SimpleInstall=1",
 )
+
+
+def _install_windows_private_python_standalone(log: LogFn, target: Path) -> Path:
+    """Extract Astral python-build-standalone (includes Tcl/Tk)."""
+    import tarfile
+
+    with tempfile.TemporaryDirectory(prefix="herbivor_pbs_") as tmp:
+        tmp_path = Path(tmp)
+        archive = tmp_path / "python.tar.gz"
+        last_err: Exception | None = None
+        for url in WIN_PYTHON_STANDALONE_URLS:
+            try:
+                _download(url, archive, log)
+                if archive.is_file() and archive.stat().st_size > 10_000_000:
+                    last_err = None
+                    break
+            except Exception as exc:  # noqa: BLE001 — try next mirror
+                last_err = exc
+                log(f"Standalone download failed ({url}): {exc}")
+        if last_err is not None and (
+            not archive.is_file() or archive.stat().st_size <= 10_000_000
+        ):
+            raise RuntimeError(
+                f"python-build-standalone download failed: {last_err}"
+            ) from last_err
+
+        log("Extracting portable Python …")
+        with tarfile.open(archive, "r:gz") as tf:
+            tf.extractall(tmp_path)
+
+        found = next(tmp_path.rglob("python.exe"), None)
+        if found is None:
+            raise RuntimeError("python.exe missing inside standalone archive")
+        src = found.parent
+
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+        target.mkdir(parents=True, exist_ok=True)
+        for item in src.iterdir():
+            dest = target / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest)
+
+    private = target / "python.exe"
+    if not private.is_file():
+        raise RuntimeError(f"Standalone extract did not produce {private}")
+    return private
 
 
 def _install_windows_private_python(log: LogFn) -> Path:
     target = windows_private_python_dir()
     log(f"Installing private Python {PYTHON_VERSION} to {target} …")
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        log("Removing previous private Python (incomplete or missing Tcl/Tk) …")
-        shutil.rmtree(target, ignore_errors=True)
-        target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="herbivor_py_") as tmp:
-        installer = Path(tmp) / f"python-{PYTHON_VERSION}-amd64.exe"
-        _download(WIN_PYTHON_INSTALLER, installer, log)
-        _run(
-            [str(installer), *_WIN_PYTHON_INSTALL_ARGS, f"TargetDir={target}"],
-            log,
-        )
-    private = target / "python.exe"
+
+    try:
+        private = _install_windows_private_python_standalone(log, target)
+    except Exception as standalone_exc:  # noqa: BLE001
+        log(f"WARNING: portable Python install failed: {standalone_exc}")
+        log("Falling back to official python.org installer …")
+        if target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="herbivor_py_") as tmp:
+            installer = Path(tmp) / "python-3.12.10-amd64.exe"
+            _download(WIN_PYTHON_INSTALLER, installer, log)
+            _run(
+                [str(installer), *_WIN_PYTHON_INSTALL_ARGS, f"TargetDir={target}"],
+                log,
+            )
+        private = target / "python.exe"
+        if not private.is_file():
+            default = (
+                Path(os.environ.get("LOCALAPPDATA", ""))
+                / "Programs"
+                / "Python"
+                / "Python312"
+                / "python.exe"
+            )
+            if default.is_file():
+                log(f"Copying from default install path {default.parent} …")
+                if target.exists():
+                    shutil.rmtree(target, ignore_errors=True)
+                shutil.copytree(default.parent, target, dirs_exist_ok=True)
+                private = target / "python.exe"
+
     if not private.is_file() or not _python_version_ok(private):
         raise RuntimeError(f"Private Python install failed (missing {private})")
     if not _tkinter_usable(private):
         raise RuntimeError(
             f"Private Python at {private} was installed but tkinter/Tcl-Tk is not usable. "
-            "Re-run the installer, or install Python from https://www.python.org/ "
-            "with the Tcl/Tk component enabled."
+            "Re-run Install_HerbivoR.bat with an internet connection."
         )
     log(f"Private Python ready: {private}")
     return private

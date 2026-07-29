@@ -4,6 +4,25 @@ if defined SystemRoot (
 )
 cd /d "%~dp0"
 
+REM Auto-setup on first launch if Setup finished copying files but deps were skipped.
+if not exist ".venv\Scripts\python.exe" (
+    echo HerbivoR needs a one-time setup ^(Python packages + models^).
+    echo This can take 5-20 minutes and requires internet...
+    echo.
+    call "%~dp0Install_HerbivoR.bat" /auto
+    if errorlevel 1 (
+        echo.
+        echo Setup failed. See messages above, then re-run Install_HerbivoR.bat.
+        pause
+        exit /b 1
+    )
+    if not exist ".venv\Scripts\python.exe" (
+        echo Setup finished but .venv is still missing.
+        pause
+        exit /b 1
+    )
+)
+
 if exist ".venv\Scripts\pythonw.exe" (
     .venv\Scripts\pythonw.exe -m gui.main 2>>gui_error.log
     if not errorlevel 1 goto :done
@@ -17,12 +36,9 @@ if exist ".venv\Scripts\python.exe" (
     if not errorlevel 1 goto :done
 )
 
-echo The .venv folder does not exist or startup failed.
-echo Please run Install_HerbivoR.bat (or Install.bat) first.
-echo If you see "Can't find a usable init.tcl", Tcl/Tk is missing:
-echo   1^) Delete the .venv folder in this directory
-echo   2^) Run Install_HerbivoR.bat again ^(installs a private Python with Tcl/Tk^)
+echo HerbivoR failed to start.
 echo If the window does not appear, check gui_error.log in this folder.
+echo You can also re-run Install_HerbivoR.bat to repair the install.
 pause
 exit /b 1
 

@@ -5,6 +5,17 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.7] — 2026-07-28
+
+### Fixed
+- Windows Setup now **waits** for dependency install to finish before you can launch
+  the app (avoids “`.venv` does not exist” right after Setup).
+- Private Python install uses a **portable CPython** (Astral python-build-standalone
+  with Tcl/Tk) instead of the silent python.org EXE, which often reported success
+  without creating `python.exe` on some PCs.
+- Double-clicking `HerbivoR.bat` / the shortcut auto-runs setup when `.venv` is missing
+  (`Install_HerbivoR.bat /auto`) so users do not need manual repair steps.
+
 ## [1.3.6] — 2026-07-28
 
 ### Fixed
