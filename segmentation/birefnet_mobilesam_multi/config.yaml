@@ -1,0 +1,35 @@
+# Multi-leaf BiRefNet_lite + MobileSAM (connected components)
+# Used only when Project → "Multiple leaves per photo" is enabled.
+
+# ---- Resolution ----
+output_size: 1024
+resize_before_segmentation: false
+segmentation_resolution: 1024
+
+# ---- Blue circle reference ----
+circle:
+  known_diameter_mm: 6.0
+  hsv_lower: [100, 80, 40]
+  hsv_upper: [130, 255, 255]
+  min_circularity: 0.65
+  min_area_px: 50
+  required: false
+  min_confidence_score: 0.45
+
+# ---- Leaf / instance selection ----
+leaf:
+  min_area_px: 5000          # drop noise CCs smaller than this (original-res px)
+  fill_internal_holes: true
+  exclude_blue_region: true
+  box_prior_margin_frac: 0.15  # expand each CC bbox before MobileSAM box prompt
+  max_leaves: null             # null = no limit; else keep largest N after area filter
+
+# ---- Hybrid model strategy ----
+hybrid:
+  mode: "birefnet_primary"
+  agreement_threshold: 0.85
+
+# ---- Output ----
+background_color: [255, 255, 255]
+save_debug_overlays: true
+save_circle_crop: true

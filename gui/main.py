@@ -80,6 +80,9 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # Do not create a separate tk.Tk() splash root: destroying it on Windows can
+    # post WM_QUIT and make mainloop() exit right after the real window opens.
+    # Splash is shown as a Toplevel inside HerbivoRApp construction instead.
     from gui.app import HerbivoRApp
 
     app = HerbivoRApp()

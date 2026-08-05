@@ -29,12 +29,18 @@ from image_io import load_rgb
 
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO))
-from analyze_leaves import (  # noqa: E402
-    compose_damage_rgb,
-    connected_damage_component,
-    hybrid_select_damage_region,
-    save_damage_preview_pil,
-)
+
+_analyze_leaves_mod = None
+
+
+def _analyze_leaves():
+    """Lazy-import analyze_leaves (torch/SMP) so GUI startup stays light."""
+    global _analyze_leaves_mod
+    if _analyze_leaves_mod is None:
+        import analyze_leaves as _al  # noqa: E402
+
+        _analyze_leaves_mod = _al
+    return _analyze_leaves_mod
 
 _MAX_UNDO = 30
 
@@ -643,7 +649,7 @@ class DamageEditorCarousel(ImageCarousel):
             if not self._damage_mask[y, x]:
                 return
             self._push_undo()
-            blob = connected_damage_component(self._damage_mask, (x, y))
+            blob = _analyze_leaves().connected_damage_component(self._damage_mask, (x, y))
             self._damage_mask[blob] = False
             return
 
@@ -673,7 +679,7 @@ class DamageEditorCarousel(ImageCarousel):
 
         def worker() -> None:
             try:
-                region = hybrid_select_damage_region(
+                region = _analyze_leaves().hybrid_select_damage_region(
                     rgb,
                     (x, y),
                     leaf_roi,
@@ -888,7 +894,9 @@ class DamageEditorCarousel(ImageCarousel):
     def _refresh_damage_pil(self) -> None:
         if self._rgb_base is None or self._damage_mask is None or self._leaf_roi is None:
             return
-        rgb = compose_damage_rgb(self._rgb_base, self._damage_mask, self._leaf_roi)
+        rgb = _analyze_leaves().compose_damage_rgb(
+            self._rgb_base, self._damage_mask, self._leaf_roi
+        )
         self._pil_original = Image.fromarray(rgb)
 
     def _paint_damage_at(self, ix: float, iy: float, add: bool) -> None:
@@ -959,7 +967,7 @@ class DamageEditorCarousel(ImageCarousel):
             if not cv2.imwrite(str(dmg_path), mask_u8):
                 return
             meta_path.write_text(json.dumps(self._meta, indent=2), encoding="utf-8")
-            save_damage_preview_pil(
+            _analyze_leaves().save_damage_preview_pil(
                 self._rgb_base,
                 self._damage_mask,
                 self._leaf_roi,

@@ -150,9 +150,19 @@ class SegmentTab(ctk.CTkFrame):
                 "C. Interactive segmentation: Click each leaf to preview selection (light-blue mask).\n"
                 "  • Only leaf: one click per photo (leaf only; % damage, no mm²).\n"
                 "  • Leaf + scale: first click = leaf, second click = blue scale sticker "
-                "(MobileSAM). Repeat for every photo, then Run segmentation."
+                "(MobileSAM). Repeat for every photo, then Run segmentation.\n\n"
+                "Multi-leaf photos: enable 'Multiple leaves per photo' on the Project tab "
+                "(method A only). Touching/overlapping leaves may merge into one component."
             ),
         ).pack(side="left", padx=4)
+        self._multi_leaf_badge = ctk.CTkLabel(
+            row_method,
+            text="Multi-leaf ON",
+            text_color=("#1f6aa5", "#5dade2"),
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self._multi_leaf_badge.pack(side="left", padx=(8, 0))
+        self._multi_leaf_badge.pack_forget()
 
         self._interactive_frame = ctk.CTkFrame(scroll, fg_color=("gray92", "gray18"))
         self._interactive_frame.grid(row=2, column=0, sticky="ew", pady=(8, 0))
@@ -1129,7 +1139,20 @@ class SegmentTab(ctk.CTkFrame):
     def _on_method_change(self, _val=None) -> None:
         # Sync method first so UI helpers see the new selection
         self.sync_to_state()
+        if self._state.multi_leaf_photos and not self._is_birefnet_method():
+            from tkinter import messagebox
+
+            messagebox.showwarning(
+                "Multiple leaves per photo",
+                "Multi-leaf mode only works with BiRefNet + MobileSAM (method A).\n\n"
+                "Keeping method A. Turn off 'Multiple leaves per photo' on the "
+                "Project tab to use Otsu or Interactive.",
+            )
+            self._state.segmentation_method = "birefnet_mobilesam"
+            self._apply_method_label("birefnet_mobilesam")
+            self.sync_to_state()
         self._update_advanced_panels()
+        self._refresh_multi_leaf_badge()
         if self._is_interactive_method():
             mode = self._interactive_click_mode()
             self._state.interactive_click_mode = mode
@@ -1141,11 +1164,20 @@ class SegmentTab(ctk.CTkFrame):
         self.refresh_preview()
         method = self._state.validate_segmentation_method()
         if method == "birefnet_mobilesam":
-            self.preload_birefnet_models_async()
+            # Defer so the main window paints before model warm-load contends for CPU/disk.
+            self.after(400, self.preload_birefnet_models_async)
         elif method == "intact":
             from gui.interactive_sam_session import reset_session
 
             reset_session(release_models=True)
+
+    def _refresh_multi_leaf_badge(self) -> None:
+        if not hasattr(self, "_multi_leaf_badge"):
+            return
+        if self._state.multi_leaf_photos:
+            self._multi_leaf_badge.pack(side="left", padx=(8, 0))
+        else:
+            self._multi_leaf_badge.pack_forget()
 
     def _apply_interactive_ui(self) -> None:
         """Show input photos + click banner when Interactive method is selected."""
@@ -1194,6 +1226,7 @@ class SegmentTab(ctk.CTkFrame):
 
     def load_from_state(self) -> None:
         self._apply_method_label(self._state.validate_segmentation_method())
+        self._refresh_multi_leaf_badge()
 
         self._set_entry(
             self._max_leaves,

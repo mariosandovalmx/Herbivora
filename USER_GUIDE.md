@@ -159,6 +159,18 @@ Launch with:
    - `results.csv`
    - `*_analyzed.jpg` overlays
 
+### Multiple leaves in one photo
+
+On the **Project** tab, enable **Multiple leaves per photo** when each input image
+contains several leaves that do **not** touch or overlap.
+
+- Uses BiRefNet + MobileSAM only (method A on the Segmentation tab).
+- Writes one file per leaf: `{photo}_leaf_1.png`, `{photo}_leaf_2.png`, …
+- Contour / Analysis treat each file as a normal leaf; `results.csv` gets one row per leaf.
+- Contour and Damage models do **not** need re-training.
+- Mutually exclusive with **Skip segmentation**.
+- Limitation: touching or overlapping leaves may be detected as a single component.
+
 ---
 
 ## How to open HerbivoR later

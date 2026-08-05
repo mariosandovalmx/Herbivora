@@ -92,7 +92,19 @@ def lookup_scale_factor(scale_data: dict, image_name: str) -> float | None:
             v = scale_data.get(base + ext)
             if v is not None and not isinstance(v, dict):
                 return float(v)
-    # 4. Stem with extensions
+    # 4. Multi-leaf: photo1_leaf_2 → try photo1 (shared scale from parent photo)
+    leaf_m = re.match(r"^(.+)_leaf_\d+$", base if base != stem else stem, re.IGNORECASE)
+    if leaf_m:
+        parent = leaf_m.group(1)
+        v = scale_data.get(parent)
+        if v is not None and not isinstance(v, dict):
+            return float(v)
+        for ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff",
+                    ".JPG", ".JPEG", ".PNG", ".TIF", ".TIFF"):
+            v = scale_data.get(parent + ext)
+            if v is not None and not isinstance(v, dict):
+                return float(v)
+    # 5. Stem with extensions
     for ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff",
                 ".JPG", ".JPEG", ".PNG", ".TIF", ".TIFF"):
         v = scale_data.get(stem + ext)
@@ -111,14 +123,18 @@ MIN_FRAGMENT_AREA_RATIO = 0.002
 DEFAULT_FILL_MARGINAL = True
 DEFAULT_WHITE_HOLE_BRIGHTNESS = 235
 DEFAULT_WHITE_HOLE_MIN_AREA = 3
-DEFAULT_WHITE_HOLE_EDGE_BAND = 1
+DEFAULT_WHITE_HOLE_EDGE_BAND = 2
 DEFAULT_WHITE_HOLE_ADAPTIVE = True
 DEFAULT_WHITE_HOLE_AUTO_FLOOR = 175
 DEFAULT_WHITE_HOLE_AUTO_CEILING = 250
 DEFAULT_EDGE_ARTIFACT_FILTER = True
-DEFAULT_EDGE_MIN_INWARD_PX = 3.0
+# Target thin contour ghosts only — keep real holes / notches / interior damage.
+DEFAULT_EDGE_MIN_INWARD_PX = 3.5
 EDGE_MIN_AREA_FLOOR = 80
 EDGE_MIN_AREA_RATIO = 0.0015
+EDGE_HARD_BAND_PX = 1.5  # anti-alias strip only (do not carve into real damage)
+EDGE_ABS_MIN_COMPONENT_PX = 12  # drop isolated 1–few px speckles on the rim
+EDGE_RIM_FRAC_DROP = 0.85  # drop only when almost the whole blob sits on the rim
 DEFAULT_SCALE_AREA_CM2 = 0.2827  # area of a 6.0mm-diameter (0.6cm) blue reference dot
 DEFAULT_RECONSTRUCTION_MODEL = str(_REPO_ROOT / "leaf_reconstruction" / "models" / "unet_shape_completion.pt")
 
@@ -200,25 +216,33 @@ def filter_boundary_damage_artifacts(
     min_inward_px: float | None = None,
 ) -> tuple[np.ndarray, int]:
     """
-    Remove thin U-Net class-1 predictions hugging the leaf contour (mask misalignment).
-    Reassigns filtered pixels to class 3 (Undamage). Returns (mask, filtered_px).
+    Remove thin U-Net class-1 *contour ghosts* without eating real herbivory.
+
+    Drops only:
+      - tiny speckles
+      - hairline / elongated strips hugging the outer contour
+      - rim-dominated blobs (almost all pixels in the outermost ~1.5 px)
+      - shallow exterior-touching outlines (max depth < min_inward)
+
+    Real interior holes, notches, and compact damage patches are kept intact.
+    A light hard-band strip (EDGE_HARD_BAND_PX) removes only anti-alias fringe.
     """
     if not enabled:
         return pred_mask, 0
 
     tissue = tissue_mask.astype(bool)
-    tissue_area_px = int(tissue.sum())
-    if tissue_area_px < 50:
+    if int(tissue.sum()) < 50:
         return pred_mask, 0
 
-    damage_bool = (pred_mask == 1) & tissue
+    filled = fill_roi_holes(tissue)
+    damage_bool = (pred_mask == 1) & filled
     if not np.any(damage_bool):
         return pred_mask, 0
 
-    if min_component_area is None:
-        min_component_area = max(EDGE_MIN_AREA_FLOOR, int(EDGE_MIN_AREA_RATIO * tissue_area_px))
-
-    inward = DEFAULT_EDGE_MIN_INWARD_PX if min_inward_px is None else float(min_inward_px)
+    requested = DEFAULT_EDGE_MIN_INWARD_PX if min_inward_px is None else float(min_inward_px)
+    # Cap overly aggressive caller/config values so real damage is not erased.
+    inward = float(np.clip(requested, 2.5, 4.5))
+    hard = float(EDGE_HARD_BAND_PX)
     try:
         from gap_detector import classify_morphology
 
@@ -227,25 +251,114 @@ def filter_boundary_damage_artifacts(
     except Exception:
         pass
 
-    dist_in = cv2.distanceTransform(tissue.astype(np.uint8), cv2.DIST_L2, 5)
+    dist_in = cv2.distanceTransform(filled.astype(np.uint8), cv2.DIST_L2, 5)
+    exterior = ~filled
+    exterior_touch = cv2.dilate(exterior.astype(np.uint8), np.ones((3, 3), np.uint8), 1).astype(bool)
+
     keep = np.zeros_like(damage_bool, dtype=bool)
     n, labels, stats, _ = cv2.connectedComponentsWithStats(
         damage_bool.astype(np.uint8), connectivity=8
     )
     for i in range(1, n):
         comp = labels == i
-        area = stats[i, cv2.CC_STAT_AREA]
-        max_d = float(dist_in[comp].max()) if np.any(comp) else 0.0
-        if area >= min_component_area or max_d >= inward:
-            keep |= comp
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if area < EDGE_ABS_MIN_COMPONENT_PX or not np.any(comp):
+            continue
 
-    filtered_px = int((damage_bool & ~keep).sum())
+        depths = dist_in[comp]
+        max_d = float(depths.max())
+        rim_frac = float((depths < hard + 0.5).mean())
+        bw = int(stats[i, cv2.CC_STAT_WIDTH])
+        bh = int(stats[i, cv2.CC_STAT_HEIGHT])
+        thin_side = min(bw, bh)
+        long_side = max(bw, bh)
+        touches_out = bool(np.any(comp & exterior_touch))
+
+        # Hairline contour strokes (false red outline)
+        if thin_side <= 2 and long_side >= 15 and touches_out:
+            continue
+        # Almost entirely on the outermost fringe
+        if rim_frac >= EDGE_RIM_FRAC_DROP and max_d < inward:
+            continue
+        # Shallow outline that only hugs the exterior
+        if touches_out and max_d < inward and rim_frac >= 0.5:
+            continue
+
+        keep |= comp
+
+    # Light anti-alias fringe only — do not carve EDGE_HARD_BAND out of kept blobs
+    # beyond pixels that belong to dropped components.
+    hard_band = damage_bool & (dist_in < hard) & ~keep
+    # Also strip the 1.5 px fringe from kept components (visual anti-alias) but
+    # leave the rest of each kept blob intact.
+    fringe = keep & (dist_in < hard)
+    drop = (damage_bool & ~keep) | hard_band | fringe
+
+    filtered_px = int(drop.sum())
     if filtered_px == 0:
         return pred_mask, 0
 
     out = pred_mask.copy()
-    out[damage_bool & ~keep] = 3
+    out[drop] = 3
     return out, filtered_px
+
+
+def strip_perimeter_damage_bool(
+    damage: np.ndarray,
+    tissue_mask: np.ndarray,
+    *,
+    band_px: float | None = None,
+) -> np.ndarray:
+    """Remove only hairline contour ghosts from a boolean damage mask.
+
+    Preserves interior white holes, fenestrations, and open notches. Does **not**
+    erode legitimate damage away from the leaf edge.
+    """
+    dmg = damage.astype(bool)
+    tissue = tissue_mask.astype(bool)
+    if not np.any(dmg) or not np.any(tissue):
+        return dmg
+
+    filled = fill_roi_holes(tissue)
+    hard = float(EDGE_HARD_BAND_PX if band_px is None else band_px)
+    dist_in = cv2.distanceTransform(filled.astype(np.uint8), cv2.DIST_L2, 5)
+    exterior = ~filled
+    exterior_touch = cv2.dilate(exterior.astype(np.uint8), np.ones((3, 3), np.uint8), 1).astype(bool)
+
+    drop = np.zeros_like(dmg, dtype=bool)
+    work = dmg & filled
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(
+        work.astype(np.uint8), connectivity=8
+    )
+    for i in range(1, n):
+        comp = labels == i
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if not np.any(comp):
+            continue
+        depths = dist_in[comp]
+        max_d = float(depths.max())
+        rim_frac = float((depths < hard + 0.5).mean())
+        bw = int(stats[i, cv2.CC_STAT_WIDTH])
+        bh = int(stats[i, cv2.CC_STAT_HEIGHT])
+        thin_side = min(bw, bh)
+        long_side = max(bw, bh)
+        touches_out = bool(np.any(comp & exterior_touch))
+
+        # Only kill hairline / rim-ghost components
+        if area < EDGE_ABS_MIN_COMPONENT_PX and touches_out and max_d < 3.0:
+            drop |= comp
+            continue
+        if thin_side <= 2 and long_side >= 15 and touches_out and max_d < 4.0:
+            drop |= comp
+            continue
+        if rim_frac >= EDGE_RIM_FRAC_DROP and max_d < 3.5 and touches_out:
+            drop |= comp
+            continue
+
+    # Tiny anti-alias fringe on remaining mask (1.5 px) — optional light clean
+    fringe = work & (dist_in < hard) & exterior_touch
+    out = work & ~drop & ~fringe
+    return out
 
 
 def canonical_leaf_id(stem: str) -> str:
@@ -705,16 +818,20 @@ def compute_leaf_damage_metrics(
     rgb_holes_px = int(rgb_holes.sum())
 
     internal_extra = internal_mask & (pred_mask != 1)
-    white_holes = internal_extra | rgb_holes
+    white_holes = strip_perimeter_damage_bool(internal_extra | rgb_holes, tissue)
     white_holes_px = int(white_holes.sum())
 
     marginal_roi = compute_marginal_damage_roi(
         leaf_roi, tissue, pred_mask, fill_marginal=fill_marginal, roi_mode=roi_mode,
         orig_rgb=orig_rgb,
     )
+    marginal_roi = strip_perimeter_damage_bool(marginal_roi, tissue)
     marginal_damage_px = int(marginal_roi.sum())
     if roi_mode in ("filled", "lama") and fill_marginal:
-        damage_union = ((pred_mask == 1) & leaf_roi) | internal_mask | white_holes
+        damage_union = strip_perimeter_damage_bool(
+            ((pred_mask == 1) & leaf_roi) | white_holes,
+            tissue,
+        )
         damage_px = int(damage_union.sum())
     else:
         damage_px = visible_damage_px + marginal_damage_px + white_holes_px
@@ -844,7 +961,11 @@ def build_editable_damage_mask(
     visible_damage = (pred_mask == 1) & leaf_roi
     white_holes_roi = metrics.get("white_holes_roi", np.zeros_like(leaf_roi, dtype=bool))
     marginal = metrics.get("marginal_roi", np.zeros_like(leaf_roi, dtype=bool))
-    return visible_damage | white_holes_roi | marginal
+    combined = visible_damage | white_holes_roi | marginal
+    tissue = metrics.get("tissue_mask")
+    if tissue is None:
+        tissue = leaf_roi
+    return strip_perimeter_damage_bool(combined, tissue)
 
 
 def compose_damage_rgb(

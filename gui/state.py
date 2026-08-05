@@ -42,6 +42,7 @@ class ProjectState:
     # Segmentation
     segmentation_method: str = "birefnet_mobilesam"
     skip_segmentation: bool = False
+    multi_leaf_photos: bool = False  # Project: multiple leaves per photo → CC multi pipeline
     skip_fastsam: bool = False
     fastsam_max_leaves: int | None = 2
     fastsam_output_size: int = PIPELINE_RESOLUTION
@@ -100,10 +101,10 @@ class ProjectState:
     fill_marginal: bool = True
     draw_hull_line: bool = False
     edge_artifact_filter: bool = True
-    edge_min_inward_px: float = 3.0
+    edge_min_inward_px: float = 3.5
     white_hole_brightness: int = 235
     white_hole_min_area: int = 3
-    white_hole_edge_band: int = 1
+    white_hole_edge_band: int = 2
     white_hole_adaptive: bool = True
     report_area_cm2: bool = False
     scale_area_cm2: float = 0.2827  # area of a 6.0mm-diameter (0.6cm) blue reference dot

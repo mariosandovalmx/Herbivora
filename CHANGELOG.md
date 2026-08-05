@@ -5,6 +5,20 @@ All notable changes to HerbivoR are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.13] — 2026-08-05
+
+### Added
+- Startup splash (logo + Loading…) while the GUI builds.
+- **Multiple leaves per photo** (Project tab): BiRefNet + MobileSAM multi-leaf
+  pipeline writes `{photo}_leaf_N` files for Contour/Analysis.
+- GUI opens maximized on launch.
+
+### Changed
+- Defer heavy `analyze_leaves` / torch import until damage editing is used, so
+  the GUI starts faster.
+- Soften default white-hole / edge filters that were over-aggressive on real
+  holes and notches.
+
 ## [1.3.12] — 2026-08-05
 
 ### Added

@@ -59,12 +59,17 @@ HerbivoR/
 
 ## Typical workflow
 
-1. **Project** — choose input and output folders; **Check installation**
+1. **Project** — choose input and output folders; **Check installation**. Optional:
+   **Multiple leaves per photo** (BiRefNet + MobileSAM splits separated leaves into
+   `{photo}_leaf_1`, `{photo}_leaf_2`, … — one CSV row each after Analysis).
 2. **Segmentation** — BiRefNet + MobileSAM (recommended)
 3. **Contour / ROI** — UNET Shape; optionally **Edit Contour**
 4. **Analysis** — damage U-Net; optionally **Edit Damage**
 
 Results appear under `{output}/analyzed/` (`results.csv` + overlay images).
+
+**Multi-leaf note:** leaves in the same photo should not touch or overlap; otherwise
+they may merge into one component. Contour and Damage models are unchanged.
 
 ---
 

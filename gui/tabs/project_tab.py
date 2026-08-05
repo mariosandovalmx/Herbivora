@@ -200,8 +200,37 @@ class ProjectTab(ctk.CTkFrame):
         self._skip_prep_banner.grid_remove()
         self._skip_prep_busy = False
 
+        row_multi = ctk.CTkFrame(scroll, fg_color="transparent")
+        row_multi.grid(row=6, column=0, sticky="w", pady=(4, 4))
+        self._multi_leaf = ctk.CTkCheckBox(
+            row_multi,
+            text="Multiple leaves per photo",
+            command=self._on_multi_leaf_toggled,
+        )
+        self._multi_leaf.pack(side="left")
+        InfoButton(
+            row_multi,
+            title="Multiple leaves per photo",
+            message=(
+                "Enable when each input photo contains several separated leaves "
+                "(not touching / overlapping).\n\n"
+                "When enabled, Segmentation method A (BiRefNet + MobileSAM) runs a "
+                "multi-leaf pipeline:\n"
+                "• BiRefNet detects leaf tissue\n"
+                "• Connected components separate each leaf\n"
+                "• MobileSAM refines each leaf with a box prompt\n"
+                "• Outputs are named {photo}_leaf_1, {photo}_leaf_2, …\n"
+                "• Contour / Analysis and results.csv use one row per leaf "
+                "(no Contour or Damage model re-training).\n\n"
+                "Limitation: touching or overlapping leaves may be merged into one "
+                "component. Mutually exclusive with Skip segmentation.\n"
+                "Methods B (Otsu) and C (Interactive) stay single-leaf; enabling this "
+                "option switches Segmentation to method A."
+            ),
+        ).pack(side="left", padx=8)
+
         row_scale = ctk.CTkFrame(scroll, fg_color="transparent")
-        row_scale.grid(row=6, column=0, sticky="w", pady=(4, 4))
+        row_scale.grid(row=7, column=0, sticky="w", pady=(4, 4))
         self._remove_blue = ctk.CTkCheckBox(
             row_scale,
             text="Scale reference in photo (blue dot)",
@@ -219,7 +248,7 @@ class ProjectTab(ctk.CTkFrame):
 
         # ── Models auto-status badge ──────────────────────────────────────
         self._models_status_frame = ctk.CTkFrame(scroll, corner_radius=8)
-        self._models_status_frame.grid(row=7, column=0, sticky="ew", pady=(14, 4))
+        self._models_status_frame.grid(row=8, column=0, sticky="ew", pady=(14, 4))
         self._models_status_frame.grid_columnconfigure(1, weight=1)
 
         self._models_icon = ctk.CTkLabel(
@@ -249,7 +278,7 @@ class ProjectTab(ctk.CTkFrame):
         self._adv_section = _CollapsibleSection(
             scroll, "⚙  Advanced Options — Manual Paths"
         )
-        self._adv_section.grid(row=8, column=0, sticky="ew", pady=(12, 4))
+        self._adv_section.grid(row=9, column=0, sticky="ew", pady=(12, 4))
         content = self._adv_section.content
         content.grid_columnconfigure(0, weight=1)
 
@@ -312,7 +341,7 @@ class ProjectTab(ctk.CTkFrame):
 
         # ── Action buttons ────────────────────────────────────────────────
         btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        btn_row.grid(row=9, column=0, sticky="ew", pady=12)
+        btn_row.grid(row=10, column=0, sticky="ew", pady=12)
         self._check_install_btn = ctk.CTkButton(
             btn_row, text="Check installation", command=self._check_install
         )
@@ -321,7 +350,7 @@ class ProjectTab(ctk.CTkFrame):
 
         # ── Status ────────────────────────────────────────────────────────
         self._status_label = ctk.CTkLabel(scroll, text="", justify="left", anchor="w")
-        self._status_label.grid(row=10, column=0, sticky="ew", pady=8)
+        self._status_label.grid(row=11, column=0, sticky="ew", pady=8)
 
         self._skip_segmentation_cb = None
         self._input_refresh_job: str | None = None
@@ -570,6 +599,32 @@ class ProjectTab(ctk.CTkFrame):
             self._state.report_area_cm2 = False
         self._on_change()
 
+    def _on_multi_leaf_toggled(self) -> None:
+        """Enable multi-leaf mode; mutually exclusive with Skip segmentation."""
+        from tkinter import messagebox
+
+        checked = bool(self._multi_leaf.get())
+        if checked and bool(self._skip_segmentation.get()):
+            self._skip_segmentation.deselect()
+            self._state.skip_segmentation = False
+            self.set_skip_prep_status("idle")
+            if self._skip_segmentation_cb:
+                self._skip_segmentation_cb(run_prep=False)
+
+        self._state.multi_leaf_photos = checked
+        if checked:
+            # Multi-leaf uses Method A only
+            self._state.segmentation_method = "birefnet_mobilesam"
+            messagebox.showinfo(
+                "Multiple leaves per photo",
+                "Multi-leaf mode is on.\n\n"
+                "Segmentation will use BiRefNet + MobileSAM (method A) and export "
+                "one file per leaf ({photo}_leaf_1, {photo}_leaf_2, …).\n\n"
+                "Leaves should be separated (not touching). Contour / Damage models "
+                "are unchanged — each leaf is analyzed like a normal single-leaf image.",
+            )
+        self._on_change()
+
     def _on_skip_segmentation_toggled(self) -> None:
         from tkinter import messagebox
 
@@ -581,6 +636,11 @@ class ProjectTab(ctk.CTkFrame):
             if self._skip_segmentation_cb:
                 self._skip_segmentation_cb(run_prep=False)
             return
+
+        # Mutually exclusive with multi-leaf
+        if bool(self._multi_leaf.get()):
+            self._multi_leaf.deselect()
+            self._state.multi_leaf_photos = False
 
         size = self._state.segmentation_output_size() or 1024
         proceed = messagebox.askyesno(
@@ -638,6 +698,11 @@ class ProjectTab(ctk.CTkFrame):
             self._skip_segmentation.deselect()
         self.refresh_skip_prep_readiness()
 
+        if self._state.multi_leaf_photos:
+            self._multi_leaf.select()
+        else:
+            self._multi_leaf.deselect()
+
         if self._state.remove_blue:
             self._remove_blue.select()
         else:
@@ -667,6 +732,7 @@ class ProjectTab(ctk.CTkFrame):
         self._state.input_dir = self._input_picker.get()
         self._state.output_dir = self._output_picker.get()
         self._state.skip_segmentation = bool(self._skip_segmentation.get())
+        self._state.multi_leaf_photos = bool(self._multi_leaf.get())
         self._state.remove_blue = bool(self._remove_blue.get())
         # Always pull model paths from pickers (Browse alone used to leave state stale).
         mobilesam = self._mobilesam_picker.get()

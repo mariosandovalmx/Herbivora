@@ -361,10 +361,12 @@ class AnalyzeTab(ctk.CTkFrame):
             self._state.white_hole_min_area = 3
         try:
             self._state.white_hole_edge_band = int(
-                self._white_hole_edge_band.get().strip() or "1"
+                self._white_hole_edge_band.get().strip() or "2"
             )
         except ValueError:
-            self._state.white_hole_edge_band = 1
+            self._state.white_hole_edge_band = 2
+        if self._state.white_hole_edge_band < 1 or self._state.white_hole_edge_band > 3:
+            self._state.white_hole_edge_band = 2
         self._state.white_hole_adaptive = bool(self._white_hole_adaptive.get())
         self._state.report_area_cm2 = (self._output_mode_var.get() == "Damage % + area (cm\u00b2)")
         import math as _math

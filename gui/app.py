@@ -37,103 +37,115 @@ class HerbivoRApp(ctk.CTk):
         self.minsize(1000, 700)
 
         from gui.icons import apply_window_icon, load_header_image
+        from gui.splash import show_splash_toplevel
 
-        apply_window_icon(self)
+        # Splash as Toplevel on this same CTk root. Do NOT withdraw the root:
+        # CustomTkinter sets _withdraw_called_before_window_exists and then
+        # skips deiconify in mainloop(), so the GUI never appears.
+        build_splash = show_splash_toplevel(self)
+        try:
+            apply_window_icon(self)
 
-        self._state = load_config()
-        self._runner = JobRunner(self._on_log, self._on_job_done)
-        self._after_fastsam = False
-        self._after_contour_copy = False
-        self._chain_contour = False
-        self._chain_analyze = False
-        self._skip_segmentation_prep = False
-        self._active_job_panel: str | None = None
+            self._state = load_config()
+            self._runner = JobRunner(self._on_log, self._on_job_done)
+            self._after_fastsam = False
+            self._after_contour_copy = False
+            self._chain_contour = False
+            self._chain_analyze = False
+            self._skip_segmentation_prep = False
+            self._active_job_panel: str | None = None
 
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+            self.grid_rowconfigure(0, weight=1)
+            self.grid_columnconfigure(0, weight=1)
 
-        self._main_split = MainSplitPane(self)
-        self._main_split.grid(row=0, column=0, sticky="nsew")
+            self._main_split = MainSplitPane(self)
+            self._main_split.grid(row=0, column=0, sticky="nsew")
 
-        self._left_wrap = ctk.CTkFrame(self._main_split)
-        self._left_wrap.grid_rowconfigure(1, weight=1)
-        self._left_wrap.grid_columnconfigure(0, weight=1)
+            self._left_wrap = ctk.CTkFrame(self._main_split)
+            self._left_wrap.grid_rowconfigure(1, weight=1)
+            self._left_wrap.grid_columnconfigure(0, weight=1)
 
-        top_bar = ctk.CTkFrame(self._left_wrap, fg_color="transparent")
-        top_bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(6, 0))
+            top_bar = ctk.CTkFrame(self._left_wrap, fg_color="transparent")
+            top_bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(6, 0))
 
-        header_img = load_header_image(32)
-        if header_img is not None:
-            self._header_icon_img = header_img  # keep reference
-            ctk.CTkLabel(top_bar, text="", image=header_img, width=32).pack(
-                side="left", padx=(0, 8)
+            header_img = load_header_image(32)
+            if header_img is not None:
+                self._header_icon_img = header_img  # keep reference
+                ctk.CTkLabel(top_bar, text="", image=header_img, width=32).pack(
+                    side="left", padx=(0, 8)
+                )
+            ctk.CTkLabel(
+                top_bar,
+                text="HerbivoR",
+                font=ctk.CTkFont(size=14, weight="bold"),
+            ).pack(side="left")
+
+            self._show_log_btn = ctk.CTkButton(
+                top_bar,
+                text="Show Log",
+                width=130,
+                height=26,
+                command=self._toggle_log,
             )
-        ctk.CTkLabel(
-            top_bar,
-            text="HerbivoR",
-            font=ctk.CTkFont(size=14, weight="bold"),
-        ).pack(side="left")
+            self._show_log_btn.pack(side="right")
 
-        self._show_log_btn = ctk.CTkButton(
-            top_bar,
-            text="Show Log",
-            width=130,
-            height=26,
-            command=self._toggle_log,
-        )
-        self._show_log_btn.pack(side="right")
+            self._tabs = ctk.CTkTabview(self._left_wrap)
+            self._tabs.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
+            self._tabs.add("1. Project")
+            self._tabs.add("2. Segmentation")
+            self._tabs.add("3. Contour / ROI")
+            self._tabs.add("4. Analysis")
+            self._tabs.configure(command=self._on_tab_changed)
 
-        self._tabs = ctk.CTkTabview(self._left_wrap)
-        self._tabs.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
-        self._tabs.add("1. Project")
-        self._tabs.add("2. Segmentation")
-        self._tabs.add("3. Contour / ROI")
-        self._tabs.add("4. Analysis")
-        self._tabs.configure(command=self._on_tab_changed)
+            self._project_tab = ProjectTab(
+                self._tabs.tab("1. Project"), self._state, self._on_state_change
+            )
+            self._project_tab.pack(fill="both", expand=True)
+            self._project_tab.set_skip_segmentation_callback(self._on_skip_segmentation_changed)
 
-        self._project_tab = ProjectTab(
-            self._tabs.tab("1. Project"), self._state, self._on_state_change
-        )
-        self._project_tab.pack(fill="both", expand=True)
-        self._project_tab.set_skip_segmentation_callback(self._on_skip_segmentation_changed)
+            self._segment_tab = SegmentTab(
+                self._tabs.tab("2. Segmentation"), self._state, self._on_state_change
+            )
+            self._segment_tab.pack(fill="both", expand=True)
+            self._segment_tab.set_run_callback(self._run_segmentation)
+            self._segment_tab.set_reanalyze_callback(self._on_reanalyze)
+            self._segment_tab.set_interactive_finalize_callback(self._run_interactive_finalize)
+            self._is_reanalyze = False
+            self._is_interactive_finalize = False
 
-        self._segment_tab = SegmentTab(
-            self._tabs.tab("2. Segmentation"), self._state, self._on_state_change
-        )
-        self._segment_tab.pack(fill="both", expand=True)
-        self._segment_tab.set_run_callback(self._run_segmentation)
-        self._segment_tab.set_reanalyze_callback(self._on_reanalyze)
-        self._segment_tab.set_interactive_finalize_callback(self._run_interactive_finalize)
-        self._is_reanalyze = False
-        self._is_interactive_finalize = False
+            self._contour_tab = ContourTab(
+                self._tabs.tab("3. Contour / ROI"), self._state, self._on_state_change
+            )
+            self._contour_tab.pack(fill="both", expand=True)
+            self._contour_tab.set_run_callback(self._run_contour)
 
-        self._contour_tab = ContourTab(
-            self._tabs.tab("3. Contour / ROI"), self._state, self._on_state_change
-        )
-        self._contour_tab.pack(fill="both", expand=True)
-        self._contour_tab.set_run_callback(self._run_contour)
+            self._analyze_tab = AnalyzeTab(
+                self._tabs.tab("4. Analysis"), self._state, self._on_state_change
+            )
+            self._analyze_tab.pack(fill="both", expand=True)
+            self._analyze_tab.set_run_callback(self._run_analyze)
 
-        self._analyze_tab = AnalyzeTab(
-            self._tabs.tab("4. Analysis"), self._state, self._on_state_change
-        )
-        self._analyze_tab.pack(fill="both", expand=True)
-        self._analyze_tab.set_run_callback(self._run_analyze)
+            self._segment_tab._carousel.set_stop_callback(self._runner.cancel)
+            self._contour_tab._carousel.set_stop_callback(self._runner.cancel)
+            self._analyze_tab._carousel.set_stop_callback(self._runner.cancel)
 
-        self._segment_tab._carousel.set_stop_callback(self._runner.cancel)
-        self._contour_tab._carousel.set_stop_callback(self._runner.cancel)
-        self._analyze_tab._carousel.set_stop_callback(self._runner.cancel)
+            self._main_split.set_tabs(self._left_wrap)
 
-        self._main_split.set_tabs(self._left_wrap)
+            self._log_panel = LogPanel(self._main_split)
+            self._log_panel.set_cancel_callback(self._runner.cancel)
+            self._log_panel.set_toggle_callback(self._toggle_log)
+            self._main_split.set_log(self._log_panel)
 
-        self._log_panel = LogPanel(self._main_split)
-        self._log_panel.set_cancel_callback(self._runner.cancel)
-        self._log_panel.set_toggle_callback(self._toggle_log)
-        self._main_split.set_log(self._log_panel)
+            self._load_all_tabs()
+            self._update_tab_access()
+            self._refresh_carousel_for_tab(self._tabs.get())
+            self.protocol("WM_DELETE_WINDOW", self._on_close)
+        finally:
+            build_splash.close()
 
-        self._load_all_tabs()
-        self._update_tab_access()
-        self._refresh_carousel_for_tab(self._tabs.get())
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.lift()
+        # After CustomTkinter finishes its first show/titlebar pass in mainloop.
+        self.after(0, lambda: self.state("zoomed"))
 
     def _toggle_log(self) -> None:
         visible = self._main_split.toggle_log()
@@ -261,6 +273,8 @@ class HerbivoRApp(ctk.CTk):
         save_config(self._state)
         self._project_tab.refresh_status()
         self._update_tab_access()
+        if hasattr(self._segment_tab, "_refresh_multi_leaf_badge"):
+            self._segment_tab._refresh_multi_leaf_badge()
 
     def _on_skip_segmentation_changed(self, *, run_prep: bool = False) -> None:
         self._update_tab_access()
@@ -413,7 +427,11 @@ class HerbivoRApp(ctk.CTk):
         chain_contour: bool = False,
         chain_analyze: bool = False,
     ) -> None:
-        """Method A: BiRefNet + MobileSAM in the GUI process (models stay warm)."""
+        """Method A: BiRefNet + MobileSAM in the GUI process (models stay warm).
+
+        When Project → Multiple leaves per photo is on, routes to the multi-leaf
+        connected-component pipeline (new package); otherwise the single-leaf path.
+        """
         if self._runner.is_running:
             return
         kwargs = self._segment_tab.collect_birefnet_batch_kwargs(input_override)
@@ -433,25 +451,60 @@ class HerbivoRApp(ctk.CTk):
         self._chain_contour = chain_contour
         self._chain_analyze = chain_analyze
         self._job_panel_start("segment")
-        self._set_status("Running BiRefNet + MobileSAM (in-GUI)...", "#1f6aa5")
-        job_title = title or "BiRefNet + MobileSAM Segmentation (models kept warm)"
+
+        multi = bool(self._state.multi_leaf_photos)
+        if multi:
+            self._set_status("Running multi-leaf BiRefNet + MobileSAM...", "#1f6aa5")
+            job_title = title or "Multi-leaf BiRefNet + MobileSAM (models kept warm)"
+        else:
+            self._set_status("Running BiRefNet + MobileSAM (in-GUI)...", "#1f6aa5")
+            job_title = title or "BiRefNet + MobileSAM Segmentation (models kept warm)"
 
         def work(log, should_cancel) -> None:
-            ok, failed = session.run_folder_batch(
-                kwargs["input_dir"],
-                kwargs["output_dir"],
-                known_diameter_mm=kwargs["known_diameter_mm"],
-                hybrid_mode=kwargs["hybrid_mode"],
-                seg_resolution=kwargs["seg_resolution"],
-                output_size=kwargs["output_size"],
-                agreement_threshold=kwargs["agreement_threshold"],
-                remove_blue=kwargs["remove_blue"],
-                mobilesam_weights=kwargs.get("mobilesam_weights"),
-                log=log,
-                should_cancel=should_cancel,
+            session.ensure_mobilesam(
+                log=log, weights=kwargs.get("mobilesam_weights")
             )
+            session.ensure_birefnet(log=log)
+            session._ensure_path()
+            if multi:
+                from segmentation.birefnet_mobilesam_multi.run_multi_pipeline import (
+                    run_folder_batch_multi,
+                )
+
+                ok, failed = run_folder_batch_multi(
+                    kwargs["input_dir"],
+                    kwargs["output_dir"],
+                    birefnet=session._birefnet,
+                    mobilesam=session.mobilesam,
+                    known_diameter_mm=kwargs["known_diameter_mm"],
+                    hybrid_mode=kwargs["hybrid_mode"],
+                    seg_resolution=kwargs["seg_resolution"],
+                    output_size=kwargs["output_size"],
+                    agreement_threshold=kwargs["agreement_threshold"],
+                    remove_blue=kwargs["remove_blue"],
+                    mobilesam_weights=kwargs.get("mobilesam_weights"),
+                    log=log,
+                    should_cancel=should_cancel,
+                )
+            else:
+                ok, failed = session.run_folder_batch(
+                    kwargs["input_dir"],
+                    kwargs["output_dir"],
+                    known_diameter_mm=kwargs["known_diameter_mm"],
+                    hybrid_mode=kwargs["hybrid_mode"],
+                    seg_resolution=kwargs["seg_resolution"],
+                    output_size=kwargs["output_size"],
+                    agreement_threshold=kwargs["agreement_threshold"],
+                    remove_blue=kwargs["remove_blue"],
+                    mobilesam_weights=kwargs.get("mobilesam_weights"),
+                    log=log,
+                    should_cancel=should_cancel,
+                )
             if failed and not ok:
-                raise RuntimeError(f"All {failed} BiRefNet segmentations failed.")
+                raise RuntimeError(
+                    f"All {failed} BiRefNet segmentations failed."
+                    + (" (multi-leaf)" if multi else "")
+                )
 
         self._runner.run_callable(work, title=job_title)
 
@@ -620,6 +673,16 @@ class HerbivoRApp(ctk.CTk):
         if not self._segment_tab._validate():
             return
         method = self._state.validate_segmentation_method()
+        # Multi-leaf mode only supports Method A
+        if self._state.multi_leaf_photos and method != "birefnet_mobilesam":
+            messagebox.showinfo(
+                "Multiple leaves per photo",
+                "Multi-leaf mode requires BiRefNet + MobileSAM (method A).\n\n"
+                "Switching to method A for this run.",
+            )
+            self._state.segmentation_method = "birefnet_mobilesam"
+            self._segment_tab.load_from_state()
+            method = "birefnet_mobilesam"
         if method == "birefnet_mobilesam":
             self._run_birefnet_inprocess(
                 chain_contour=chain_contour,

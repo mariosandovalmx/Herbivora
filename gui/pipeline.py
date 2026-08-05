@@ -534,12 +534,20 @@ def build_analyze_args(state: ProjectState) -> list[str]:
     state.fill_marginal = True
     state.edge_artifact_filter = True
     state.draw_hull_line = False
-    if state.edge_min_inward_px != 3.0:
-        args.extend(["--edge-min-inward-px", str(state.edge_min_inward_px)])
+    # Clamp only extreme weak values; do not force the previous over-aggressive floors.
+    state.edge_min_inward_px = float(state.edge_min_inward_px or 3.5)
+    if state.edge_min_inward_px < 2.5 or state.edge_min_inward_px > 6.0:
+        state.edge_min_inward_px = 3.5
+    state.white_hole_edge_band = int(state.white_hole_edge_band or 2)
+    if state.white_hole_edge_band < 1:
+        state.white_hole_edge_band = 2
+    # Cap legacy over-aggressive configs (5–8) that were eating real holes/notches.
+    if state.white_hole_edge_band > 3:
+        state.white_hole_edge_band = 2
+    args.extend(["--edge-min-inward-px", str(state.edge_min_inward_px)])
+    args.extend(["--white-hole-edge-band", str(state.white_hole_edge_band)])
     if state.white_hole_min_area != 3:
         args.extend(["--white-hole-min-area", str(state.white_hole_min_area)])
-    if state.white_hole_edge_band != 1:
-        args.extend(["--white-hole-edge-band", str(state.white_hole_edge_band)])
     if not state.white_hole_adaptive:
         args.append("--no-white-hole-adaptive")
         if state.white_hole_brightness != 235:
