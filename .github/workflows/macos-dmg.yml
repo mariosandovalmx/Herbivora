@@ -5,7 +5,9 @@
 #   - When a Release is published (tag push + release create)
 #   - Manual: Actions → "macOS DMG" → Run workflow (enter tag, e.g. v1.3.5)
 #
-# No local Mac required. Windows maintainers publish the Release; CI builds the DMG.
+# No local Mac required. CI builds the drag-to-Applications DMG. When the Apple
+# signing secrets documented in packaging/README.md are configured, CI also
+# signs, notarizes, and staples it so Gatekeeper accepts it normally.
 
 name: macOS DMG
 
@@ -25,6 +27,9 @@ permissions:
 jobs:
   build-dmg:
     runs-on: macos-latest
+    env:
+      SIGNING_ENABLED: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_SIGNING_IDENTITY != '' }}
+      NOTARIZATION_ENABLED: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
     steps:
       - name: Resolve tag
         id: meta
@@ -47,11 +52,38 @@ jobs:
         with:
           ref: ${{ steps.meta.outputs.tag }}
 
-      - name: Build DMG
-        id: build
+      - name: Import Developer ID certificate
+        if: env.SIGNING_ENABLED == 'true'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/herbivor-signing.keychain-db"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$RUNNER_TEMP" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$RUNNER_TEMP" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$RUNNER_TEMP" "$KEYCHAIN_PATH"
+
+      - name: Build DMG
+        id: build
+        shell: bash
+        env:
+          DEVELOPER_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [[ "$SIGNING_ENABLED" == "true" ]]; then
+            export CODESIGN_IDENTITY="$DEVELOPER_IDENTITY"
+          else
+            unset CODESIGN_IDENTITY
+          fi
           chmod +x packaging/build_macos_dmg.sh
           ./packaging/build_macos_dmg.sh
           VER="$(tr -d '[:space:]' < VERSION)"
@@ -61,19 +93,50 @@ jobs:
           echo "DMG size bytes: $SIZE"
           test "$SIZE" -gt 100000
 
-          # Smoke: mount and confirm Install_HerbivoR.command is present
+          # Smoke: mount and confirm the drag-to-Applications contents and icon.
           MNT="$(mktemp -d)"
           hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG"
-          if [[ ! -f "$MNT/HerbivoR/Install_HerbivoR.command" ]]; then
-            echo "ERROR: Install_HerbivoR.command missing inside DMG"
+          if [[ ! -d "$MNT/HerbivoR.app" || ! -L "$MNT/Applications" ]]; then
+            echo "ERROR: HerbivoR.app or Applications shortcut missing inside DMG"
             ls -laR "$MNT" || true
             hdiutil detach "$MNT" || true
             exit 1
           fi
+          # Unsigned builds depend on these instructions; fail loudly if absent.
+          if [[ ! -f "$MNT/ READ ME FIRST.txt" ]]; then
+            echo "ERROR: ' READ ME FIRST.txt' missing inside DMG"
+            ls -la "$MNT" || true
+            hdiutil detach "$MNT" || true
+            exit 1
+          fi
+          grep -q "$VER" "$MNT/ READ ME FIRST.txt"
+          test -f "$MNT/HerbivoR.app/Contents/Resources/AppIcon.icns"
+          plutil -extract CFBundleIconFile raw \
+            "$MNT/HerbivoR.app/Contents/Info.plist" | grep -q '^AppIcon$'
+          codesign --verify --deep --strict "$MNT/HerbivoR.app"
           hdiutil detach "$MNT"
 
           echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize and staple DMG
+        if: env.NOTARIZATION_ENABLED == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit "${{ steps.build.outputs.dmg }}" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple "${{ steps.build.outputs.dmg }}"
+          xcrun stapler validate "${{ steps.build.outputs.dmg }}"
+          spctl --assess --type open --context context:primary-signature \
+            --verbose=2 "${{ steps.build.outputs.dmg }}"
 
       - name: Upload DMG to Release
         env:

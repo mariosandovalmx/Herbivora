@@ -7,6 +7,7 @@ into one plain-text agreement shown on the Inno Setup license page.
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -85,10 +86,14 @@ def build_text() -> str:
     return HEADER + license_text.rstrip() + "\n" + PART_B + PART_C_HEADER + third.rstrip() + "\n" + FOOTER
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build the HerbivoR installer license text")
+    parser.add_argument("output", nargs="?", type=Path, default=OUT)
+    args = parser.parse_args(argv)
     text = build_text()
-    OUT.write_text(text, encoding="utf-8", newline="\r\n")
-    print(f"Wrote {OUT} ({len(text)} characters)")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(text, encoding="utf-8", newline="\n")
+    print(f"Wrote {args.output} ({len(text)} characters)")
     return 0
 
 

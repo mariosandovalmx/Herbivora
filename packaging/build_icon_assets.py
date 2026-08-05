@@ -103,8 +103,10 @@ def main() -> None:
     out_icon = ROOT / "herbivor_icon.png"
     out_256 = ROOT / "herbivor_256.png"
     out_ico = ROOT / "herbivor.ico"
+    out_icns = ROOT / "HerbivoR.icns"
     master.save(out_icon, optimize=True)
     master.resize((256, 256), Image.Resampling.LANCZOS).save(out_256, optimize=True)
+    master.save(out_icns, format="ICNS")
 
     sizes = [16, 24, 32, 48, 64, 128, 256]
     frames = [master.resize((s, s), Image.Resampling.LANCZOS) for s in sizes]
@@ -128,7 +130,7 @@ def main() -> None:
     border[:, :12] = True
     border[:, -12:] = True
     print("cream-in-border-strip", int((cream & border).sum()))
-    print("wrote", out_icon.name, out_256.name, out_ico.name)
+    print("wrote", out_icon.name, out_256.name, out_ico.name, out_icns.name)
 
 
 if __name__ == "__main__":

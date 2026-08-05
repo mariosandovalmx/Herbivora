@@ -1,48 +1,46 @@
 #!/usr/bin/env bash
-# Build a simple HerbivoR-vVERSION.dmg on macOS (maintainers).
-# Contents: source tree + Install_HerbivoR.command for double-click setup.
+# Build the end-user HerbivoR drag-to-Applications DMG on macOS.
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-VER="$(tr -d '[:space:]' < VERSION || echo 0.0.0)"
-STAGE="$ROOT/dist/dmg_stage/HerbivoR"
-DMG="$ROOT/dist/HerbivoR-v${VER}.dmg"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "This script must run on macOS."
   exit 1
 fi
 
-rm -rf "$ROOT/dist/dmg_stage"
+VER="$(tr -d '[:space:]' < VERSION || echo 0.0.0)"
+DIST="$ROOT/dist"
+STAGE="$DIST/dmg_stage"
+DMG="$DIST/HerbivoR-v${VER}.dmg"
+
+echo "[HerbivoR] Building simple drag-to-Applications DMG v$VER"
+rm -rf "$STAGE"
 mkdir -p "$STAGE"
-rsync -a \
-  --exclude '.git' \
-  --exclude '.venv' \
-  --exclude '__pycache__' \
-  --exclude 'dist' \
-  --exclude 'build' \
-  --exclude '.cursor' \
-  --exclude 'hf_cache' \
-  --exclude 'models/*.pt' \
-  --exclude 'models/*.pth' \
-  --exclude '*.lnk' \
-  --exclude 'gui_error.log' \
-  "$ROOT/" "$STAGE/"
 
-chmod +x "$STAGE/Install_HerbivoR.command" "$STAGE/install.sh" "$STAGE/herbivor.sh" \
-  "$STAGE/packaging/create_macos_app.sh" "$STAGE/packaging/build_macos_dmg.sh" || true
+bash "$ROOT/packaging/build_macos_app_bundle.sh" "$STAGE"
+ln -s /Applications "$STAGE/Applications"
 
-# Full license agreement visible in Finder before install
-python3 "$ROOT/packaging/build_installer_license.py"
-cp "$ROOT/packaging/installer_license.txt" "$STAGE/LICENSE AGREEMENT.txt"
-cp "$ROOT/LICENSE" "$STAGE/LICENSE"
-cp "$ROOT/THIRD_PARTY_NOTICES.md" "$STAGE/THIRD_PARTY_NOTICES.md"
-cp "$ROOT/CITATION.cff" "$STAGE/CITATION.cff"
-
-# Finder-friendly alias name
-ln -sf Install_HerbivoR.command "$STAGE/Install HerbivoR.command" 2>/dev/null || true
+# HerbivoR is not notarized (that requires a paid Apple Developer ID), so every
+# recipient hits Gatekeeper once. Launching the app from inside this read-only
+# image is a dead end, so ship the instructions in the same window. The leading
+# space sorts the file first in Finder's icon view.
+sed "s/__VERSION__/$VER/g" "$ROOT/packaging/macos_app/dmg_readme.txt" \
+  > "$STAGE/ READ ME FIRST.txt"
 
 rm -f "$DMG"
-hdiutil create -volname "HerbivoR $VER" -srcfolder "$ROOT/dist/dmg_stage" -ov -format UDZO "$DMG"
-echo "Created $DMG"
-echo "Attach this file to the GitHub Release for macOS users."
+hdiutil create \
+  -volname "HerbivoR $VER" \
+  -srcfolder "$STAGE" \
+  -format UDZO \
+  -imagekey zlib-level=9 \
+  -ov \
+  "$DMG" >/dev/null
+
+if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+  codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "$DMG"
+fi
+
+echo "[HerbivoR] Created $DMG"
+echo "[HerbivoR] Contents: HerbivoR.app + Applications shortcut"

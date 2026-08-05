@@ -68,14 +68,46 @@ A Hugging Face account is **not** required to download the public model weights.
 #### Option A — DMG (when provided on the Release page)
 
 1. Download **`HerbivoR-vX.Y.Z.dmg`** from Releases.
-2. Open the DMG and copy the **HerbivoR** folder to **Applications** or **Documents**.
-3. Double-click **`Install HerbivoR.command`** (or `Install_HerbivoR.command`).
-4. If macOS blocks it: **System Settings → Privacy & Security** → allow the app/script, or right-click → **Open**.
-5. If the installer says Python is missing:
-   - Install [Python 3.12 from python.org](https://www.python.org/downloads/macos/), **or**
-   - Run `xcode-select --install` in Terminal, then try again.
-6. Click **Install** in the GUI and wait for completion.
-7. Open **`HerbivoR.app`** if it was created, or run **`herbivor.sh`** from Terminal.
+2. Open the DMG and drag the **HerbivoR leaf icon** onto the **Applications** folder shown beside it.
+3. Eject the DMG, then open **HerbivoR** from Applications.
+4. Approve HerbivoR once (see below).
+5. On first launch, accept the license and click **Install**. HerbivoR downloads its private environment, PyTorch, and model weights; this can take 5–20 minutes.
+6. When setup finishes, close the setup window. HerbivoR opens automatically and future launches start the app directly.
+
+> **Do not double-click HerbivoR while it is still inside the DMG window.** macOS
+> refuses to launch a downloaded app from a read-only disk image and reports only
+> *"The application "HerbivoR.app" can't be opened."*, with no way to continue.
+> Copy it to **Applications** first. The same instructions ship inside the DMG as
+> `READ ME FIRST.txt`.
+
+#### Approving HerbivoR on first launch
+
+HerbivoR is distributed without an Apple Developer ID certificate, so macOS shows
+a security prompt the first time you open it. Every recipient sees this once:
+
+1. Double-click **HerbivoR** in **Applications**. macOS shows *"HerbivoR" Not
+   Opened / Apple could not verify "HerbivoR" is free of malware*. Click **Done**
+   (not *Move to Trash*).
+2. Open **System Settings → Privacy & Security**, scroll to **Security**, and
+   click **Open Anyway** next to the HerbivoR entry. Confirm with Touch ID or
+   your password.
+3. Double-click **HerbivoR** again and click **Open Anyway**.
+
+On macOS 13 and 14 you can instead right-click **HerbivoR** in Applications,
+choose **Open**, and click **Open** in the dialog.
+
+Terminal equivalent, if you prefer one command:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/HerbivoR.app
+```
+
+On Apple silicon, the standard macOS PyTorch wheel already includes the
+**Metal Performance Shaders (MPS)** backend; there is no separate “Metal” wheel.
+HerbivoR prefers native `arm64` execution and uses MPS automatically when it is
+available. If pip ends with `from versions: none`, check the preceding messages:
+this commonly means PyPI was temporarily unreachable rather than that Metal is
+unsupported.
 
 #### Option B — Source ZIP / Git clone
 
@@ -179,6 +211,8 @@ Details: [INSTALL.md](INSTALL.md).
 | Models missing / failed download | Project → Check installation; or `.venv\Scripts\python.exe download_models.py` |
 | GUI crash / blank window | Run with a visible console: `.venv\Scripts\python.exe -m gui.main` and read `gui_error.log` |
 | Antivirus quarantines Setup.exe | Allow/whitelist the file from the official Release; code signing may come in a later version |
+| macOS: “The application "HerbivoR.app" can't be opened.” | You launched it from inside the DMG. Drag it to **Applications** first, then approve it under **System Settings → Privacy & Security** |
+| macOS: “Apple could not verify HerbivoR is free of malware” | Expected for this unsigned build. Click **Done**, then **Open Anyway** in **System Settings → Privacy & Security** |
 
 ---
 

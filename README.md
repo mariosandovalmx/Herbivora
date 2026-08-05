@@ -17,8 +17,10 @@ Pipeline:
 1. Download from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases):
    - **Windows:** `HerbivoR-Setup-vX.Y.Z.exe` (or Source ZIP + `Install_HerbivoR.bat`)
    - **macOS:** `HerbivoR-vX.Y.Z.dmg` (or Source ZIP + `Install_HerbivoR.command`)
-2. Run the installer and wait until it finishes (downloads PyTorch + models automatically; GPU is auto-detected on Windows/Linux).
-3. Open **HerbivoR** from the shortcut / `HerbivoR.app` / `./herbivor.sh`.
+2. On macOS, open the DMG and drag the **HerbivoR leaf icon** onto **Applications**, then open the app *from Applications*. Do not launch it from inside the DMG window. On Windows, run Setup.
+   - macOS shows **"Apple could not verify HerbivoR is free of malware"** on first launch, because these builds are not signed with a paid Apple Developer ID. Click **Done**, then approve HerbivoR once under **System Settings → Privacy & Security → Open Anyway**. Full steps are in ` READ ME FIRST.txt` inside the DMG and in [USER_GUIDE.md](USER_GUIDE.md#macos).
+3. Complete the first-time setup (downloads PyTorch + models automatically; GPU is auto-detected on Windows/Linux).
+4. Open **HerbivoR** from Applications / the Windows shortcut / `./herbivor.sh`.
 
 **Step-by-step for every OS:** **[USER_GUIDE.md](USER_GUIDE.md)** · short reference: **[INSTALL.md](INSTALL.md)**.
 
@@ -47,7 +49,7 @@ HerbivoR/
 ├── packaging/                # Bootstrap installer, Setup/DMG builders, optional PyInstaller
 ├── models/                   # Weights (downloaded; git-ignored)
 ├── Install_HerbivoR.bat      # Windows one-click installer (recommended)
-├── Install_HerbivoR.command  # macOS/Linux one-click installer (recommended)
+├── Install_HerbivoR.command  # Source-install fallback for macOS/Linux
 ├── Install_CPU.bat / Install_CUDA.bat / Install.bat   # advanced Windows
 ├── install.sh / herbivor.sh
 └── USER_GUIDE.md

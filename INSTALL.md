@@ -13,17 +13,17 @@ Releases publish a **small** installer (Setup.exe / DMG when available) or **sou
 | Platform | What to run |
 |----------|-------------|
 | Windows | **`HerbivoR-Setup-vX.Y.Z.exe`** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases), **or** extract the source ZIP and double-click **`Install_HerbivoR.bat`** |
-| macOS | **`HerbivoR-vX.Y.Z.dmg`** (if attached), **or** extract source and double-click **`Install_HerbivoR.command`** |
+| macOS | Open **`HerbivoR-vX.Y.Z.dmg`**, drag the HerbivoR leaf icon to **Applications**, and open it. Source fallback: `Install_HerbivoR.command` |
 | Linux | `./Install_HerbivoR.command` or `./install.sh` |
 
-The bootstrap installer:
+The first-time setup:
 
 1. Ensures Python (Windows: private per-user install if needed)
 2. Creates `.venv`
 3. Auto-detects NVIDIA GPU → CUDA 12.4, else CPU (macOS: default wheels + MPS)
 4. Installs `requirements.txt`
 5. Downloads models (~226 MB)
-6. Creates shortcuts / `HerbivoR.app`
+6. Creates platform shortcuts when installing from source (the macOS DMG already contains `HerbivoR.app`)
 
 Full walkthrough: **[USER_GUIDE.md](USER_GUIDE.md)**.
 
@@ -133,6 +133,28 @@ chmod +x packaging/build_macos_dmg.sh
 ```
 
 Output: `dist/HerbivoR-vVERSION.dmg`.
+
+The DMG contains `HerbivoR.app`, an Applications shortcut, and ` READ ME FIRST.txt`.
+The app uses the HerbivoR leaf artwork from `assets/herbivor_icon.png`; first
+launch performs the dependency and model setup without asking the user to run a
+Terminal command.
+
+**Gatekeeper on other people's Macs.** Builds that are only ad-hoc signed are
+blocked on every Mac except the one that built them, because the download carries
+a `com.apple.quarantine` flag and there is no notarization ticket. Confirm with:
+
+```bash
+syspolicy_check distribution dist/dmg_stage/HerbivoR.app
+```
+
+Two distinct symptoms follow from the same cause. Launching the app from inside
+the mounted DMG produces a dead-end *"The application "HerbivoR.app" can't be
+opened."* alert with only an OK button; launching it from `/Applications`
+produces the recoverable *"Apple could not verify …"* alert whose block can be
+lifted in **System Settings → Privacy & Security → Open Anyway**. The
+` READ ME FIRST.txt` shipped in the DMG walks users through this, and the
+recipient can skip it entirely with
+`xattr -dr com.apple.quarantine /Applications/HerbivoR.app`.
 
 Verify downloads with `SHA256SUMS` from the Release (`shasum -a 256 -c SHA256SUMS` on macOS/Linux; `Get-FileHash` on Windows).
 

@@ -13,6 +13,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import shutil
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -50,6 +52,21 @@ MOBILESAM_URL = (
 LogFn = Callable[[str], None]
 
 
+def ssl_context() -> ssl.SSLContext:
+    """Verified TLS context using certifi when Python has no system CA file.
+
+    The python.org macOS builds can report ``cafile=None`` until their separate
+    certificate installer has been run. HerbivoR already depends on certifi via
+    its HTTP packages, so use that maintained CA bundle without weakening TLS.
+    """
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except (ImportError, OSError):
+        return ssl.create_default_context()
+
+
 @dataclass
 class EnsureModelsResult:
     """Outcome of :func:`ensure_models`."""
@@ -80,7 +97,7 @@ def url_size(url: str) -> int | None:
     """Content-Length from a HEAD request, or None if unavailable."""
     try:
         req = urllib.request.Request(url, method="HEAD")
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30, context=ssl_context()) as resp:
             length = resp.headers.get("Content-Length")
             return int(length) if length else None
     except (urllib.error.URLError, ValueError, TimeoutError, OSError):
@@ -104,7 +121,10 @@ def download_url(url: str, dest: Path) -> None:
     """Download ``url`` to ``dest`` (atomic replace via temp file)."""
     tmp = dest.with_suffix(dest.suffix + ".part")
     try:
-        urllib.request.urlretrieve(url, tmp)
+        req = urllib.request.Request(url, headers={"User-Agent": "HerbivoR model downloader"})
+        with urllib.request.urlopen(req, timeout=120, context=ssl_context()) as response:
+            with tmp.open("wb") as output:
+                shutil.copyfileobj(response, output)
         tmp.replace(dest)
     except Exception:
         if tmp.is_file():

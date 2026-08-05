@@ -55,6 +55,16 @@ def _default_log(msg: str) -> None:
     print(msg, flush=True)
 
 
+def read_version(root: Path) -> str:
+    """Version being installed, taken from the VERSION file next to the sources."""
+    version_file = root / "VERSION"
+    if version_file.is_file():
+        text = version_file.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+    return "unknown"
+
+
 def load_installer_license_text(root: Path) -> str:
     """Full agreement text for installers (LICENSE + citation + third-party)."""
     packaged = root / "packaging" / "installer_license.txt"
@@ -454,39 +464,54 @@ def install_torch(py: Path, flavor: str, log: LogFn) -> None:
     log("Upgrading pip …")
     _run([str(py), "-m", "pip", "install", "--upgrade", "pip"], log)
 
-    if flavor == "cuda":
-        log("Installing PyTorch CUDA 12.4 wheels …")
-        _run(
-            [
-                str(py),
-                "-m",
-                "pip",
-                "install",
-                "torch",
-                "torchvision",
-                "--index-url",
-                "https://download.pytorch.org/whl/cu124",
-            ],
-            log,
-        )
-    elif flavor == "macos":
-        log("Installing PyTorch (macOS default wheels, MPS-capable) …")
-        _run([str(py), "-m", "pip", "install", "torch", "torchvision"], log)
-    else:
-        log("Installing PyTorch CPU wheels …")
-        _run(
-            [
-                str(py),
-                "-m",
-                "pip",
-                "install",
-                "torch",
-                "torchvision",
-                "--index-url",
-                "https://download.pytorch.org/whl/cpu",
-            ],
-            log,
-        )
+    pip_install = [
+        str(py),
+        "-m",
+        "pip",
+        "install",
+        "--retries",
+        "10",
+        "--timeout",
+        "30",
+    ]
+
+    try:
+        if flavor == "cuda":
+            log("Installing PyTorch CUDA 12.4 wheels …")
+            _run(
+                [
+                    *pip_install,
+                    "torch",
+                    "torchvision",
+                    "--index-url",
+                    "https://download.pytorch.org/whl/cu124",
+                ],
+                log,
+            )
+        elif flavor == "macos":
+            log("Installing native PyTorch for macOS (Metal/MPS included) …")
+            log("There is no separate Metal package; the standard macOS wheel provides MPS.")
+            _run([*pip_install, "torch", "torchvision"], log)
+        else:
+            log("Installing PyTorch CPU wheels …")
+            _run(
+                [
+                    *pip_install,
+                    "torch",
+                    "torchvision",
+                    "--index-url",
+                    "https://download.pytorch.org/whl/cpu",
+                ],
+                log,
+            )
+    except RuntimeError:
+        if flavor == "macos":
+            log("")
+            log("PyTorch Metal/MPS installation failed.")
+            log("If pip reports 'from versions: none', it usually could not reach PyPI")
+            log("or no wheel matched the selected Python and native architecture.")
+            log("Check the internet connection and reopen HerbivoR to retry.")
+        raise
 
 
 def install_requirements(py: Path, root: Path, log: LogFn) -> None:
@@ -574,6 +599,7 @@ def run_install(
             "Extract the Release ZIP or clone the repository, then run the installer from that folder."
         )
 
+    log(f"HerbivoR version: {read_version(root)}")
     flavor, note = detect_torch_flavor(flavor_arg)
     log(note)
     log(f"Install root: {root}")
@@ -601,24 +627,35 @@ def run_install(
     return flavor
 
 
-def _run_gui(root: Path, flavor_arg: str) -> int:
+def _run_gui(root: Path, flavor_arg: str, *, app_mode: bool = False) -> int:
     _configure_tcl_tk_env_for_prefix(Path(sys.base_prefix))
     import tkinter as tk
     from tkinter import messagebox, scrolledtext, ttk
 
+    version = read_version(root)
+
     win = tk.Tk()
-    win.title("HerbivoR Installer")
+    win.title(f"HerbivoR Installer {version}")
     win.geometry("780x620")
     win.minsize(640, 480)
 
     frm = ttk.Frame(win, padding=12)
     frm.pack(fill="both", expand=True)
 
-    ttk.Label(frm, text="HerbivoR setup", font=("Segoe UI", 14, "bold")).pack(anchor="w")
+    heading = "HerbivoR first-time setup" if app_mode else "HerbivoR setup"
+    ttk.Label(
+        frm, text=f"{heading} (version {version})", font=("Segoe UI", 14, "bold")
+    ).pack(anchor="w")
+    setup_description = (
+        "This one-time setup creates a private environment and downloads PyTorch and models.\n"
+        if app_mode
+        else "This installer sets up a private environment, downloads PyTorch and models,\n"
+    )
     ttk.Label(
         frm,
-        text="This installer sets up a private environment, downloads PyTorch and models,\n"
-        "and creates a desktop shortcut. Internet required (about 5–20 minutes).\n"
+        text=setup_description
+        + ("" if app_mode else "It also creates a desktop shortcut. ")
+        + "Internet required (about 5–20 minutes).\n"
         "You must accept the license terms below before installing.",
     ).pack(anchor="w", pady=(4, 8))
 
@@ -661,6 +698,7 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
     close_btn.pack(side="right")
 
     lines: list[str] = []
+    install_succeeded = False
 
     def _sync_install_enabled(*_args: object) -> None:
         start_btn.configure(state=("normal" if agree_var.get() else "disabled"))
@@ -679,31 +717,44 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
         win.after(0, _ui)
 
     def worker() -> None:
+        nonlocal install_succeeded
         try:
-            run_install(root, flavor_var.get(), append_log)
+            run_install(
+                root,
+                flavor_var.get(),
+                append_log,
+                skip_shortcuts=app_mode,
+            )
+            install_succeeded = True
 
             def _ok() -> None:
                 bar.stop()
                 status.configure(text="Installation completed.")
                 start_btn.configure(state="normal")
+                next_step = (
+                    "Close this setup window; HerbivoR will open automatically."
+                    if app_mode
+                    else "Use the HerbivoR shortcut (leaf icon) to open the app."
+                )
                 messagebox.showinfo(
                     "HerbivoR",
                     "Installation completed.\n\n"
-                    "Use the HerbivoR shortcut (leaf icon) to open the app.\n\n"
-                    "License files remain in the install folder:\n"
+                    + next_step
+                    + "\n\nLicense files remain in the install folder:\n"
                     "LICENSE, THIRD_PARTY_NOTICES.md, CITATION.cff",
                 )
 
             win.after(0, _ok)
         except Exception as exc:  # noqa: BLE001 — show any failure in the GUI
+            error_message = str(exc)
 
             def _err() -> None:
                 bar.stop()
                 status.configure(text="Installation failed.")
                 start_btn.configure(state="normal")
-                messagebox.showerror("HerbivoR installer", str(exc))
+                messagebox.showerror("HerbivoR installer", error_message)
 
-            append_log(f"ERROR: {exc}")
+            append_log(f"ERROR: {error_message}")
             win.after(0, _err)
 
     def on_start() -> None:
@@ -722,7 +773,7 @@ def _run_gui(root: Path, flavor_arg: str) -> int:
 
     start_btn.configure(command=on_start)
     win.mainloop()
-    return 0
+    return 0 if install_succeeded else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -741,6 +792,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--gui", action="store_true", help="Show a simple progress window")
     parser.add_argument(
+        "--app-mode",
+        action="store_true",
+        help="Run first-launch setup from HerbivoR.app without creating another app shortcut",
+    )
+    parser.add_argument(
         "--yes",
         action="store_true",
         help="Non-interactive console install (assumes license already accepted, e.g. Setup.exe)",
@@ -750,7 +806,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.gui:
-        return _run_gui(args.root, args.flavor)
+        return _run_gui(args.root, args.flavor, app_mode=args.app_mode)
 
     if args.yes:
         _default_log(
