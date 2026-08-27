@@ -6,6 +6,12 @@ import os
 import sys
 from pathlib import Path
 
+# Windows 11 can refuse Hugging Face cache symlinks (WinError 448,
+# "untrusted mount point"). Force copies before huggingface_hub is imported.
+if os.name == "nt":
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
 
 def _repo_root() -> Path:
     if getattr(sys, "frozen", False):

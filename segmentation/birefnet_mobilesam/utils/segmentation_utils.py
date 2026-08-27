@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -51,7 +52,10 @@ def _config_supports_remote_birefnet(config_path: Path) -> bool:
 
 
 def _birefnet_snapshot_is_complete(snapshot: Path) -> bool:
-    if not all((snapshot / name).is_file() for name in _BIREFNET_REMOTE_FILES):
+    try:
+        if not all((snapshot / name).is_file() for name in _BIREFNET_REMOTE_FILES):
+            return False
+    except OSError:
         return False
     return _config_supports_remote_birefnet(snapshot / "config.json")
 
@@ -64,7 +68,10 @@ def _repair_birefnet_configs() -> None:
     """Ensure local BiRefNet config.json can be loaded by modern transformers."""
     for snapshot in _birefnet_snapshot_dirs():
         config_path = snapshot / "config.json"
-        if not config_path.is_file():
+        try:
+            if not config_path.is_file():
+                continue
+        except OSError:
             continue
         try:
             cfg = json.loads(config_path.read_text(encoding="utf-8"))
@@ -91,10 +98,13 @@ def _repair_birefnet_configs() -> None:
             cfg["architectures"] = ["BiRefNet"]
             changed = True
         if changed:
-            config_path.write_text(
-                json.dumps(cfg, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
+            try:
+                config_path.write_text(
+                    json.dumps(cfg, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+            except OSError:
+                continue
 
 
 def _invalidate_incomplete_birefnet_cache() -> None:
@@ -102,6 +112,71 @@ def _invalidate_incomplete_birefnet_cache() -> None:
     for snapshot in _birefnet_snapshot_dirs():
         if not _birefnet_snapshot_is_complete(snapshot):
             shutil.rmtree(snapshot, ignore_errors=True)
+
+
+_WINERROR_UNTRUSTED_MOUNT = 448
+
+
+def _is_untrusted_mount_error(exc: BaseException) -> bool:
+    if getattr(exc, "winerror", None) == _WINERROR_UNTRUSTED_MOUNT:
+        return True
+    text = str(exc).lower()
+    return "untrusted mount point" in text or "punto de montaje no confiable" in text
+
+
+def _disable_hf_cache_symlinks() -> None:
+    """Ask huggingface_hub to copy files instead of creating Windows reparse points.
+
+    HF_HUB_DISABLE_SYMLINKS is read from huggingface_hub.constants at import; we
+    also set the module flag so a late call still wins after transformers loaded.
+    """
+    os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1"
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    try:
+        from huggingface_hub import constants as hf_c
+
+        hf_c.HF_HUB_DISABLE_SYMLINKS = True
+        hf_c.HF_HUB_DISABLE_SYMLINKS_WARNING = True
+    except Exception:
+        pass
+
+
+def _materialize_snapshot_symlinks() -> None:
+    """Replace Hugging Face snapshot symlinks with real files.
+
+    Windows 11 (WinError 448) can refuse to traverse newly created reparse
+    points under AppData. Reading the blob and rewriting a regular file avoids
+    that for an already-downloaded cache.
+    """
+    for snapshot in _birefnet_snapshot_dirs():
+        try:
+            entries = list(snapshot.iterdir())
+        except OSError:
+            continue
+        for path in entries:
+            try:
+                is_link = path.is_symlink()
+            except OSError:
+                is_link = True
+            if not is_link:
+                continue
+            data: bytes | None = None
+            try:
+                data = path.read_bytes()
+            except OSError:
+                try:
+                    target = os.readlink(path)
+                    blob = Path(target) if os.path.isabs(target) else (path.parent / target)
+                    data = blob.read_bytes()
+                except OSError:
+                    data = None
+            if data is None:
+                continue
+            try:
+                path.unlink()
+            except OSError:
+                continue
+            path.write_bytes(data)
 
 
 # --------------------------------------------------------------------------- #
@@ -138,6 +213,10 @@ def load_birefnet(device: torch.device):
     _PKG_MODELS_DIR.mkdir(parents=True, exist_ok=True)
     _BIREFNET_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+    if os.name == "nt":
+        _disable_hf_cache_symlinks()
+        _materialize_snapshot_symlinks()
+
     _repair_birefnet_configs()
     cached = _birefnet_is_cached()
 
@@ -158,6 +237,9 @@ def load_birefnet(device: torch.device):
         err_text = str(first_err)
         if "model_type" in err_text or "Unrecognized model" in err_text:
             _invalidate_incomplete_birefnet_cache()
+        if os.name == "nt" and _is_untrusted_mount_error(first_err):
+            _disable_hf_cache_symlinks()
+            _materialize_snapshot_symlinks()
         try:
             model = _from_pretrained(local_only=False)
         except Exception as second_err:

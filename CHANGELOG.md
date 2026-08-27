@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Contour hover tooltips leaving persistent on-screen text.
 - Intermittent mis-render of the Project / Segmentation / Contour / Analysis tab bar at startup.
+- Windows 11 BiRefNet load failing with WinError 448 (“untrusted mount point”) when
+  Hugging Face cache used symlinks under AppData; Hub cache now copies files on Windows.
 
 ## [1.3.13] — 2026-08-05
 
