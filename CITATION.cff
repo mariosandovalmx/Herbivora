@@ -8,7 +8,7 @@ type: software
 authors:
   - family-names: Sandoval
     given-names: Mario
-    # orcid: https://orcid.org/0000-0000-0000-0000
+    orcid: https://orcid.org/0000-0002-8536-6006
 repository-code: https://github.com/mariosandovalmx/Herbivora
 url: https://huggingface.co/mariosandovalmx/Herbivora
 license: PolyForm-Noncommercial-1.0.0
