@@ -1,8 +1,10 @@
 # Herbivora
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22120799.svg)](https://doi.org/10.5281/zenodo.22120799)
+
 **Herbivora** is a desktop GUI for quantifying leaf herbivory damage from photographs.
 
-**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **User guide:** [`USER_GUIDE.md`](USER_GUIDE.md) · **Repo:** [github.com/mariosandovalmx/Herbivora](https://github.com/mariosandovalmx/Herbivora)
+**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **User guide:** [`USER_GUIDE.md`](USER_GUIDE.md) · **Repo:** [github.com/mariosandovalmx/Herbivora](https://github.com/mariosandovalmx/Herbivora) · **Archive:** [doi.org/10.5281/zenodo.22120799](https://doi.org/10.5281/zenodo.22120799)
 
 Pipeline:
 
@@ -93,4 +95,8 @@ https://huggingface.co/mariosandovalmx/Herbivora
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff).
+If you use Herbivora, please cite:
+
+> Sandoval, M. (2026). Herbivora (v1.4.1). Zenodo. https://doi.org/10.5281/zenodo.22120799
+
+BibTeX / machine-readable metadata: [CITATION.cff](CITATION.cff). Concept DOI (all versions): https://doi.org/10.5281/zenodo.22120798.

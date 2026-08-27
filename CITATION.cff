@@ -9,11 +9,18 @@ authors:
   - family-names: Sandoval
     given-names: Mario
     orcid: https://orcid.org/0000-0002-8536-6006
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22120799
+    description: This version (v1.4.1)
+  - type: doi
+    value: 10.5281/zenodo.22120798
+    description: Concept DOI (all versions)
 repository-code: https://github.com/mariosandovalmx/Herbivora
 url: https://huggingface.co/mariosandovalmx/Herbivora
 license: PolyForm-Noncommercial-1.0.0
-version: 1.4.0
-date-released: 2026-08-26
+version: 1.4.1
+date-released: 2026-08-27
 abstract: >
   Herbivora is a desktop GUI for leaf herbivory quantification from photographs,
   combining BiRefNet + MobileSAM segmentation, UNET Shape contour reconstruction,
