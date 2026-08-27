@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: Herbivora
+title: "Herbivora - A Deep Learning Software for Automated, Segmentation, Contour detection and quantification of Leaf herbivory"
 message: >
   If you use this software, you must cite it as below (required under the
   Herbivora noncommercial license). Commercial use requires prior written
@@ -16,6 +16,9 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.22120798
     description: Concept DOI (all versions)
+  - type: url
+    value: https://zenodo.org/records/22120799
+    description: Zenodo record
 repository-code: https://github.com/mariosandovalmx/Herbivora
 url: https://huggingface.co/mariosandovalmx/Herbivora
 license: PolyForm-Noncommercial-1.0.0

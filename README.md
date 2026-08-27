@@ -5,7 +5,7 @@
 <h1 align="center">Herbivora</h1>
 
 <p align="center">
-  <strong>Desktop software for quantifying leaf herbivory damage from photographs</strong>
+  <strong>A deep learning software for automated segmentation, contour detection, and quantification of leaf herbivory</strong>
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
 
 ## Overview
 
-**Herbivora** is a desktop GUI for plant ecologists and related researchers who need reproducible estimates of leaf area removed or damaged by herbivores. Starting from leaf photographs, the app combines deep-learning segmentation, morphology-aware contour reconstruction, and interactive damage editing into a single workflow.
+**Herbivora** is a desktop GUI for leaf herbivory quantification from photographs, combining BiRefNet + MobileSAM segmentation, UNET Shape contour reconstruction, and a damage U-Net with interactive editing tools. It is aimed at plant ecologists and related researchers who need reproducible estimates of leaf area removed or damaged by herbivores.
 
 <p align="center">
   <img src="assets/HerbivoR_workflow_schematic.png" alt="Herbivora three-stage workflow" width="720">
@@ -48,7 +48,7 @@
 | | |
 |:--|:--|
 | **Current version** | See [`VERSION`](VERSION) · [latest release](https://github.com/mariosandovalmx/Herbivora/releases/latest) |
-| **Archived release** | [v1.4.1 on Zenodo](https://doi.org/10.5281/zenodo.22120799) |
+| **Archived release** | [v1.4.1 · Zenodo record 22120799](https://zenodo.org/records/22120799) · [DOI](https://doi.org/10.5281/zenodo.22120799) |
 | **Platforms** | Windows 10/11 · macOS 11+ · Linux |
 | **Pipeline stages** | 3 (Segmentation → Contour → Analysis) |
 | **Contour leaf types** | Auto, Entire/smooth, Serrated, Lobed, Compound (4 specialist U-Nets) |
@@ -137,18 +137,21 @@ Herbivora/
 
 **If you use Herbivora (or its trained weights) in a publication, thesis, or presentation, you must cite it** under the Herbivora noncommercial license.
 
+Official archive: [https://zenodo.org/records/22120799](https://zenodo.org/records/22120799)
+
 **APA**
 
-> Sandoval, M. (2026). *Herbivora* (v1.4.1). Zenodo. https://doi.org/10.5281/zenodo.22120799
+> Sandoval, M. (2026). *Herbivora - A Deep Learning Software for Automated, Segmentation, Contour detection and quantification of Leaf herbivory* (Version v1.4.1). Zenodo. https://doi.org/10.5281/zenodo.22120799
 
 **BibTeX**
 
 ```bibtex
 @software{sandoval_herbivora_2026,
   author       = {Sandoval, Mario},
-  title        = {Herbivora},
-  version      = {1.4.1},
+  title        = {Herbivora - A Deep Learning Software for Automated, Segmentation, Contour detection and quantification of Leaf herbivory},
+  version      = {v1.4.1},
   year         = {2026},
+  month        = {8},
   publisher    = {Zenodo},
   doi          = {10.5281/zenodo.22120799},
   url          = {https://doi.org/10.5281/zenodo.22120799},
@@ -156,12 +159,22 @@ Herbivora/
 }
 ```
 
-| Identifier | Link |
-|:-----------|:-----|
+### Zenodo record
+
+| Field | Value |
+|:------|:------|
+| **Title** | Herbivora - A Deep Learning Software for Automated, Segmentation, Contour detection and quantification of Leaf herbivory |
+| **Creator** | Sandoval, Mario ([ORCID](https://orcid.org/0000-0002-8536-6006)) |
+| **Version** | v1.4.1 |
+| **Publication date** | 2026-08-27 |
+| **Resource type** | Software |
+| **License** | PolyForm Noncommercial License 1.0.0 |
+| **Keywords** | herbivory · leaf damage · computer vision · deep learning · plant ecology |
 | **This version DOI** | [10.5281/zenodo.22120799](https://doi.org/10.5281/zenodo.22120799) |
 | **Concept DOI** (all versions) | [10.5281/zenodo.22120798](https://doi.org/10.5281/zenodo.22120798) |
+| **Source archive** | [`Herbivora-v1.4.1.zip`](https://zenodo.org/records/22120799/files/mariosandovalmx/Herbivora-v1.4.1.zip?download=1) |
+| **Related GitHub tag** | [v1.4.1](https://github.com/mariosandovalmx/Herbivora/tree/v1.4.1) |
 | **Machine-readable citation** | [`CITATION.cff`](CITATION.cff) |
-| **GitHub** | [mariosandovalmx/Herbivora](https://github.com/mariosandovalmx/Herbivora) |
 | **Model card** | [huggingface.co/mariosandovalmx/Herbivora](https://huggingface.co/mariosandovalmx/Herbivora) |
 
 GitHub “Cite this repository” also reads from `CITATION.cff`.
