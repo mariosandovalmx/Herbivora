@@ -201,8 +201,16 @@ class JobRunner:
     def cancel(self) -> None:
         self._cancel_requested = True
         with self._lock:
-            if self._proc is not None:
+            proc = self._proc
+        if proc is not None:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+            try:
+                proc.wait(timeout=2)
+            except Exception:
                 try:
-                    self._proc.terminate()
+                    proc.kill()
                 except OSError:
                     pass

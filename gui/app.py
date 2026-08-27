@@ -864,6 +864,22 @@ class HerbivoraApp(ctk.CTk):
             if not messagebox.askyesno("Exit", "A process is running. Exit anyway?"):
                 return
             self._runner.cancel()
-        self._sync_all()
-        self.destroy()
+        try:
+            self._contour_tab._shape_selector.hide_tooltips()
+        except Exception:
+            pass
+        try:
+            self._sync_all()
+        except Exception:
+            pass
+        # quit() ends mainloop; destroy() alone often leaves a frozen desktop on
+        # Windows when torch / worker threads are still shutting down.
+        try:
+            self.quit()
+        except Exception:
+            pass
+        try:
+            self.destroy()
+        except Exception:
+            pass
 

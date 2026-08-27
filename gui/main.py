@@ -86,7 +86,16 @@ def main() -> None:
     from gui.app import HerbivoraApp
 
     app = HerbivoraApp()
-    app.mainloop()
+    try:
+        app.mainloop()
+    finally:
+        # Force process exit so OpenMP/torch worker threads cannot freeze the
+        # Windows desktop after the window is gone (pythonw has no console).
+        try:
+            app.destroy()
+        except Exception:
+            pass
+        os._exit(0)
 
 
 if __name__ == "__main__":
