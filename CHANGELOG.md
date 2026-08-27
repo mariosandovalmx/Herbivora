@@ -5,6 +5,25 @@ All notable changes to Herbivora are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-08-26
+
+### Added
+- **Herbivora rebrand** (formerly HerbivoR): GUI, installers, docs, GitHub, and Hugging Face.
+- Contour tab **leaf-type selector** (Auto, Smooth, Serrated, Lobed, Compound) with per-morphology U-Net specialists.
+- Hugging Face repo [`mariosandovalmx/Herbivora`](https://huggingface.co/mariosandovalmx/Herbivora): `best_unet_shape_{smooth,serrated,lobed,compound}.pth` plus default contour and damage weights.
+- Analysis: **superficial scraped-tissue** detection (always on), improved **frass** handling in damage zones, semi-transparent damage overlay.
+- GUI: collapsible **Advanced options** on the Analysis tab.
+
+### Changed
+- `download_models.py` fetches all contour specialist checkpoints from the Hub.
+- Session checkboxes always start **unchecked** on each GUI launch (not restored from config).
+- Deferred window maximize and tab layout refresh to fix clipped tab bar on startup.
+- Shared Contour tooltips to prevent ghost pop-up text on Windows.
+
+### Fixed
+- Contour hover tooltips leaving persistent on-screen text.
+- Intermittent mis-render of the Project / Segmentation / Contour / Analysis tab bar at startup.
+
 ## [1.3.13] — 2026-08-05
 
 ### Added
