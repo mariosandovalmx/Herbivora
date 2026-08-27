@@ -143,7 +143,19 @@ DEFAULT_FRASS_IN_DAMAGE_CONTRAST = 14.0
 DEFAULT_FRASS_IN_DAMAGE_GRAY_MAX = 108
 DEFAULT_FRASS_IN_DAMAGE_MAX_AREA = 900
 DEFAULT_DAMAGE_OVERLAY_ALPHA = 0.45
+# Reported / stored herbivory percentage precision (GUI, CSV, overlay title, meta.json)
+DAMAGE_PCT_DECIMALS = 3
 DEFAULT_EDGE_ARTIFACT_FILTER = True
+
+
+def round_damage_pct(pct: float) -> float:
+    return round(float(pct), DAMAGE_PCT_DECIMALS)
+
+
+def format_damage_pct(pct: float) -> str:
+    return f"{float(pct):.{DAMAGE_PCT_DECIMALS}f}"
+
+
 # Target thin contour ghosts only — keep real holes / notches / interior damage.
 DEFAULT_EDGE_MIN_INWARD_PX = 3.5
 EDGE_MIN_AREA_FLOOR = 80
@@ -1510,8 +1522,8 @@ def damage_title(
 ) -> str:
     if scale_cm2_per_px is not None:
         damage_cm2 = damage_px * scale_cm2_per_px
-        return f"{image_name}\nDamage: {damage_pct:.1f}%  |  {damage_cm2:.2f} cm²"
-    return f"{image_name}  |  Damage: {damage_pct:.1f}%"
+        return f"{image_name}\nDamage: {format_damage_pct(damage_pct)}%  |  {damage_cm2:.2f} cm²"
+    return f"{image_name}  |  Damage: {format_damage_pct(damage_pct)}%"
 
 
 def save_visualization(
@@ -1586,7 +1598,7 @@ def save_damage_sidecars(
         "image_name": image_name,
         "leaf_area_px": int(metrics["leaf_area_px"]),
         "damage_px": int(metrics["damage_px"]),
-        "damage_pct": round(float(metrics["damage_pct"]), 2),
+        "damage_pct": round_damage_pct(metrics["damage_pct"]),
         "scale_cm2_per_px": scale_cm2_per_px,
     }
     Path(meta_path).write_text(_json_mod.dumps(meta, indent=2), encoding="utf-8")
@@ -1767,12 +1779,12 @@ def process_leaf_pair(
             damage_cm2 = metrics["damage_px"] * scale_cm2_per_px
             print(
                 f"  {image_name}{frag_tag}: Leaf area {leaf_area_cm2:.2f} cm²  |  "
-                f"Damage area {damage_cm2:.4f} cm²  ({metrics['damage_pct']:.2f}%)"
+                f"Damage area {damage_cm2:.4f} cm²  ({format_damage_pct(metrics['damage_pct'])}%)"
             )
         else:
             print(
                 f"  {image_name}{frag_tag}: Leaf area {metrics['leaf_area_px']:,} px  |  "
-                f"Damage area {metrics['damage_px']:,} px  ({metrics['damage_pct']:.2f}%)"
+                f"Damage area {metrics['damage_px']:,} px  ({format_damage_pct(metrics['damage_pct'])}%)"
             )
 
         rows.append(
@@ -1781,14 +1793,14 @@ def process_leaf_pair(
                 "leaf_area_px": metrics["leaf_area_px"],
                 "leaf_area_cm2": round(metrics["leaf_area_px"] * scale_cm2_per_px, 4) if scale_cm2_per_px else "",
                 "damage_px": metrics["damage_px"],
-                "damage_pct": round(metrics["damage_pct"], 2),
+                "damage_pct": round_damage_pct(metrics["damage_pct"]),
                 "damage_cm2": round(metrics["damage_px"] * scale_cm2_per_px, 4) if scale_cm2_per_px else "",
             }
         )
 
     note = " [re-estimated mask]" if mask_refined else ""
     if n_frag > 1:
-        print(f"  => {n_frag} fragments; weighted image damage: {agg_damage / max(1, agg_area) * 100:.2f}%{note}")
+        print(f"  => {n_frag} fragments; weighted image damage: {format_damage_pct(agg_damage / max(1, agg_area) * 100)}%{note}")
 
     agg_pct = agg_damage / max(1, agg_area) * 100.0
     viz_metrics = compute_leaf_damage_metrics(
@@ -1987,7 +1999,7 @@ def run(
     summary_rows = []
     for key, totals in by_image.items():
         area_px = totals["total_area_px"]
-        damage_pct = round(totals["total_damage_px"] / area_px * 100, 2) if area_px > 0 else 0.0
+        damage_pct = round_damage_pct(totals["total_damage_px"] / area_px * 100) if area_px > 0 else 0.0
         if totals["has_cm2"]:
             leaf_area_value = round(totals["total_area_cm2"], 4)
             damage_value = round(totals["total_damage_cm2"], 4)

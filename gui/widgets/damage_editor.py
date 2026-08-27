@@ -196,7 +196,7 @@ class DamageEditorCarousel(ImageCarousel):
         )
         self._edit_done.pack(side="left", padx=(8, 0))
 
-        # Metrics shown on Analysis left panel (set_metrics_callback), not here —
+        # Metrics shown on Analysis left panel (set_metrics_callback), not here '
         # the tool bar is too crowded and was hiding the % text.
         self._metrics_label = None
 
@@ -214,7 +214,7 @@ class DamageEditorCarousel(ImageCarousel):
     def set_edit_damage_active(self, active: bool) -> None:
         """Enter or leave Damage edit mode (called from Analysis tab)."""
         if active and not self._edit_mode:
-            # No sidecars yet — keep inactive
+            # No sidecars yet ' keep inactive
             active = False
         self._edit_active = bool(active)
         if self._edit_active:
@@ -306,15 +306,16 @@ class DamageEditorCarousel(ImageCarousel):
 
     def _update_hint(self) -> None:
         hints = {
-            "pan": "Drag to pan · Scroll or Zoom buttons to zoom · Use scrollbars to explore",
-            "add": "Paint damage anywhere (leaf or white bites)",
-            "remove": "Paint to erase damage",
-            "select_add": "Click to select a damage region (MobileSAM / color flood)",
-            "select_remove": "Click a damage blob to remove it",
-            "line": "Click two points across a white bite — fills that gap as damage",
-            "polygon": "Trace the bite on the leaf edge · Close near start — fills the white gap",
+            "pan": "Drag or scroll to pan | Ctrl+scroll to zoom | Shift+scroll pans sideways",
+            "add": "Paint damage anywhere (leaf or white bites) | Scroll pans | Ctrl+scroll zooms",
+            "remove": "Paint to erase damage | Scroll pans | Ctrl+scroll zooms",
+            "select_add": "Click to select a damage region (MobileSAM / color flood) | Scroll pans | Ctrl+scroll zooms",
+            "select_remove": "Click a damage blob to remove it | Scroll pans | Ctrl+scroll zooms",
+            "line": "Click two points across a white bite - fills that gap as damage | Scroll pans | Ctrl+scroll zooms",
+            "polygon": "Trace the bite on the leaf edge | Close near start - fills the white gap | Scroll pans | Ctrl+scroll zooms",
         }
         self._hint_label.configure(text=hints.get(self._edit_mode_var, ""))
+
 
     def _update_undo_btn(self) -> None:
         self._edit_undo.configure(state="normal" if self._undo_stack else "disabled")
@@ -355,7 +356,7 @@ class DamageEditorCarousel(ImageCarousel):
             except Exception as e:
                 self.after(0, lambda err=str(e): self._on_mobilesam_failed(err))
 
-        self._status_msg = "Loading MobileSAM…"
+        self._status_msg = "Loading MobileSAM'"
         self._update_metrics_label()
         threading.Thread(target=worker, daemon=True).start()
 
@@ -542,7 +543,7 @@ class DamageEditorCarousel(ImageCarousel):
         return cv2.dilate(self._leaf_roi.astype(np.uint8), kernel, iterations=1) > 0
 
     def _contour_gap_fill_from_overlay(self, overlay_u8: np.ndarray) -> np.ndarray:
-        """Return white pockets enclosed by leaf_roi ∪ overlay (Contour fill-holes)."""
+        """Return white pockets enclosed by leaf_roi ? overlay (Contour fill-holes)."""
         if self._leaf_roi is None:
             return np.zeros(overlay_u8.shape, dtype=bool)
         before_leaf = self._leaf_roi.astype(bool)
@@ -591,7 +592,7 @@ class DamageEditorCarousel(ImageCarousel):
 
         poly = np.zeros(self._damage_mask.shape, dtype=np.uint8)
         cv2.fillPoly(poly, [pts], 255)
-        # Closed outline on leaf → Contour fill-holes captures white edge bites
+        # Closed outline on leaf ? Contour fill-holes captures white edge bites
         outline = np.zeros(self._damage_mask.shape, dtype=np.uint8)
         cv2.polylines(outline, [pts], isClosed=True, color=255, thickness=2)
         pocket = self._contour_gap_fill_from_overlay(outline)
@@ -613,7 +614,7 @@ class DamageEditorCarousel(ImageCarousel):
         self._redraw_geometry_preview()
         if rejected:
             self._hint_label.configure(
-                text="Polygon too large (>35% of leaf) — cancelled. Draw tighter around the damage."
+                text="Polygon too large (>35% of leaf) ' cancelled. Draw tighter around the damage."
             )
         else:
             self._update_hint()
@@ -674,7 +675,7 @@ class DamageEditorCarousel(ImageCarousel):
         gen = self._select_gen + 1
         self._select_gen = gen
         self._select_busy = True
-        self._status_msg = "Selecting region…"
+        self._status_msg = "Selecting region'"
         self._update_metrics_label()
 
         def worker() -> None:
@@ -877,11 +878,13 @@ class DamageEditorCarousel(ImageCarousel):
         else:
             damage_px, damage_pct = self._current_metrics()
             scale = self._meta.get("scale_cm2_per_px")
+            al = _analyze_leaves()
+            pct_txt = al.format_damage_pct(damage_pct)
             if scale is not None and self._state.report_area_cm2:
                 damage_cm2 = damage_px * float(scale)
-                text = f"Damage: {damage_pct:.1f}%  |  {damage_cm2:.2f} cm²"
+                text = f"Damage: {pct_txt}%  |  {damage_cm2:.2f} cm\u00b2"
             else:
-                text = f"Damage: {damage_pct:.1f}%"
+                text = f"Damage: {pct_txt}%"
         if self._metrics_label is not None:
             self._metrics_label.configure(text=text)
         cb = getattr(self, "_metrics_cb", None)
@@ -958,7 +961,7 @@ class DamageEditorCarousel(ImageCarousel):
         scale = self._meta.get("scale_cm2_per_px")
 
         self._meta["damage_px"] = damage_px
-        self._meta["damage_pct"] = round(damage_pct, 2)
+        self._meta["damage_pct"] = _analyze_leaves().round_damage_pct(damage_pct)
 
         try:
             dmg_path = analyzed_damage_mask_path(self._analyzed_path)
@@ -1012,7 +1015,7 @@ class DamageEditorCarousel(ImageCarousel):
             if row.get("image_name") != image_name:
                 continue
             if "damage_pct" in fieldnames:
-                row["damage_pct"] = str(round(damage_pct, 2))
+                row["damage_pct"] = str(_analyze_leaves().round_damage_pct(damage_pct))
             if "damage_px" in fieldnames:
                 row["damage_px"] = str(int(damage_px))
             if (
@@ -1106,7 +1109,7 @@ class DamageEditorCarousel(ImageCarousel):
             n = len(self._pending_pts)
             self._redraw_geometry_preview()
             self._hint_label.configure(
-                text=f"{n} point(s) · Click near start / Enter / double-click to fill · Esc to cancel"
+                text=f"{n} point(s) ' Click near start / Enter / double-click to fill ' Esc to cancel"
             )
             return
 

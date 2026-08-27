@@ -255,11 +255,11 @@ class ContourEditorCarousel(ImageCarousel):
 
     def _update_hint(self) -> None:
         hints = {
-            "pan": "Drag to pan · Scroll or Zoom buttons to zoom · Use scrollbars to explore",
-            "add": "Paint to add leaf tissue to the ROI · Release fills enclosed holes",
-            "remove": "Paint to erase ROI tissue",
-            "line": "Click start point, then end point — line bridges the gap and fills the enclosed area",
-            "polygon": "Click vertices — starts/ends inside ROI auto-fill the area · Esc to cancel",
+            "pan": "Drag or scroll to pan · Ctrl+scroll to zoom · Shift+scroll pans sideways",
+            "add": "Paint to add leaf tissue to the ROI · Release fills enclosed holes · Scroll pans · Ctrl+scroll zooms",
+            "remove": "Paint to erase ROI tissue · Scroll pans · Ctrl+scroll zooms",
+            "line": "Click start point, then end point — line bridges the gap and fills the enclosed area · Scroll pans · Ctrl+scroll zooms",
+            "polygon": "Click vertices — starts/ends inside ROI auto-fill the area · Esc to cancel · Scroll pans · Ctrl+scroll zooms",
         }
         self._hint_label.configure(text=hints.get(self._contour_mode_var, ""))
 

@@ -20,6 +20,10 @@ ZOOM_WHEEL_FACTOR = 1.12
 ZOOM_BUTTON_FACTOR = 1.25
 MIN_ZOOM_LEVEL = 0.05
 MAX_ZOOM_LEVEL = 25.0
+WHEEL_PAN_STEP_PX = 48
+# Tk event.state bitmasks (portable across Windows / macOS / Linux)
+_TK_SHIFT = 0x0001
+_TK_CONTROL = 0x0004
 SAVE_DEBOUNCE_MS = 120
 
 
@@ -116,7 +120,7 @@ class ImageCarousel(ctk.CTkFrame):
         ).pack(side="left", padx=8)
         ctk.CTkLabel(
             zoom_bar,
-            text="Scroll: zoom · Esc: reset view",
+            text="Scroll: pan · Ctrl+scroll: zoom · Shift+scroll: pan sideways · Esc: reset",
             text_color="gray",
         ).pack(side="left", padx=4)
 
@@ -902,17 +906,53 @@ class ImageCarousel(ctk.CTkFrame):
         cv2.imwrite(str(mask_path), mask)
         self._pending_mask_strokes.clear()
 
-    def _on_wheel(self, event: tk.Event) -> None:
-        if self._pil_original is None:
-            return
-        factor = ZOOM_WHEEL_FACTOR if event.delta > 0 else 1.0 / ZOOM_WHEEL_FACTOR
-        self._apply_zoom(factor, event.x, event.y)
+    def _ctrl_held(self, event: tk.Event) -> bool:
+        return bool(getattr(event, "state", 0) & _TK_CONTROL)
 
-    def _on_wheel_linux(self, event: tk.Event) -> None:
+    def _shift_held(self, event: tk.Event) -> bool:
+        return bool(getattr(event, "state", 0) & _TK_SHIFT)
+
+    def _on_wheel(self, event: tk.Event) -> str:
+        """Mouse wheel: pan by default; Ctrl+wheel zooms. Does not change tools."""
         if self._pil_original is None:
-            return
-        factor = ZOOM_WHEEL_FACTOR if event.num == 4 else 1.0 / ZOOM_WHEEL_FACTOR
-        self._apply_zoom(factor, event.x, event.y)
+            return "break"
+        if self._ctrl_held(event):
+            factor = ZOOM_WHEEL_FACTOR if event.delta > 0 else 1.0 / ZOOM_WHEEL_FACTOR
+            self._apply_zoom(factor, event.x, event.y)
+        else:
+            direction = 1.0 if event.delta > 0 else -1.0
+            self._apply_wheel_pan(direction, horizontal=self._shift_held(event))
+        return "break"
+
+    def _on_wheel_linux(self, event: tk.Event) -> str:
+        """Linux Button-4/5 wheel: same pan / Ctrl+zoom behavior as Windows."""
+        if self._pil_original is None:
+            return "break"
+        direction = 1.0 if event.num == 4 else -1.0
+        if self._ctrl_held(event):
+            factor = ZOOM_WHEEL_FACTOR if direction > 0 else 1.0 / ZOOM_WHEEL_FACTOR
+            self._apply_zoom(factor, event.x, event.y)
+        else:
+            self._apply_wheel_pan(direction, horizontal=self._shift_held(event))
+        return "break"
+
+    def _apply_wheel_pan(self, direction: float, *, horizontal: bool = False) -> None:
+        """Nudge the view without changing the active edit tool.
+
+        ``direction`` > 0 means wheel-up: move the view upward (or right if horizontal).
+        """
+        # pan_x/y is the image top-left on the canvas.
+        # Wheel-up (direction > 0) should move the view upward (image content goes down).
+        step = WHEEL_PAN_STEP_PX * direction
+        if horizontal:
+            self._pan_x += step
+        else:
+            self._pan_y += step
+        self._needs_initial_fit = False
+        self._clamp_pan()
+        self._draw_image()
+        self._redraw_brush_preview()
+        self._sync_scrollbars()
 
     def _apply_zoom(self, factor: float, cx: int, cy: int) -> None:
         old_scale = self._display_scale()

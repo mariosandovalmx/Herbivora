@@ -6,6 +6,13 @@ import csv
 import json
 from pathlib import Path
 
+# Keep in sync with analyze_leaves.DAMAGE_PCT_DECIMALS
+_DAMAGE_PCT_DECIMALS = 3
+
+
+def _round_damage_pct(pct: float) -> float:
+    return round(float(pct), _DAMAGE_PCT_DECIMALS)
+
 
 _PCT_FIELDS = [
     "image_name",
@@ -96,8 +103,8 @@ def build_measurement_rows(
                 damage_px = int(round(leaf_area_px * float(damage_pct) / 100.0))
 
         undamaged_px = max(0, leaf_area_px - damage_px)
-        undamaged_pct = round(max(0.0, 100.0 - float(damage_pct)), 2)
-        damage_pct = round(float(damage_pct), 2)
+        undamaged_pct = _round_damage_pct(max(0.0, 100.0 - float(damage_pct)))
+        damage_pct = _round_damage_pct(float(damage_pct))
 
         row: dict = {
             "image_name": image_name,
