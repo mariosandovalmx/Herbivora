@@ -32,8 +32,7 @@
 **Herbivora** is a desktop GUI for plant ecologists and related researchers who need reproducible estimates of leaf area removed or damaged by herbivores. Starting from leaf photographs, the app combines deep-learning segmentation, morphology-aware contour reconstruction, and interactive damage editing into a single workflow.
 
 <p align="center">
-  <img src="assets/HerbivoR_workflow_schematic.png![Uploading HerbivoR_workflow_schematic.png…]()
-" alt="Herbivora three-stage workflow" width="720">
+  <img src="assets/HerbivoR_workflow_schematic.png" alt="Herbivora three-stage workflow" width="720">
 </p>
 
 | Stage | What it does |
