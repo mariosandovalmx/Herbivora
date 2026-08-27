@@ -32,7 +32,7 @@
 **Herbivora** is a desktop GUI for leaf herbivory quantification from photographs, combining BiRefNet + MobileSAM segmentation, UNET Shape contour reconstruction, and a damage U-Net with interactive editing tools. It is aimed at plant ecologists and related researchers who need reproducible estimates of leaf area removed or damaged by herbivores.
 
 <p align="center">
-  <img src="assets/HerbivoR_workflow_schematic.png" alt="Herbivora three-stage workflow" width="720">
+  <img src="assets/Herbivora_workflow_schematic.png" alt="Herbivora three-stage workflow" width="720">
 </p>
 
 | Stage | What it does |
