@@ -1,10 +1,10 @@
 #!/bin/bash
-# HerbivoR.app launcher (macOS).
+# Herbivora.app launcher (macOS).
 #
-# This script is Contents/MacOS/HerbivoR inside the distributed app bundle.
+# This script is Contents/MacOS/Herbivora inside the distributed app bundle.
 # The bundle is meant to be dragged into /Applications and double-clicked.
 #
-#   First launch : copy the payload to ~/Library/Application Support/HerbivoR,
+#   First launch : copy the payload to ~/Library/Application Support/Herbivora,
 #                  make sure a GUI-capable Python 3.10+ exists (downloading a
 #                  private CPython when the Mac has none), then run the
 #                  bootstrap installer (venv + PyTorch + model weights).
@@ -18,7 +18,7 @@ set -uo pipefail
 BUNDLE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 PAYLOAD="$BUNDLE_DIR/Contents/Resources/payload"
 
-SUPPORT_DIR="$HOME/Library/Application Support/HerbivoR"
+SUPPORT_DIR="$HOME/Library/Application Support/Herbivora"
 APP_DIR="$SUPPORT_DIR/app"
 PYTHON_DIR="$SUPPORT_DIR/python"
 STAMP_FILE="$SUPPORT_DIR/installed_version"
@@ -35,7 +35,7 @@ if [[ -f "$LOG" && "$(stat -f%z "$LOG" 2>/dev/null || echo 0)" -gt 1048576 ]]; t
   mv -f "$LOG" "$LOG.1"
 fi
 exec > >(tee -a "$LOG") 2>&1
-echo "=== HerbivoR launch $(date '+%Y-%m-%d %H:%M:%S') ==="
+echo "=== Herbivora launch $(date '+%Y-%m-%d %H:%M:%S') ==="
 echo "bundle: $BUNDLE_DIR"
 echo "process architecture: $(uname -m)"
 echo "running under Rosetta: $(sysctl -in sysctl.proc_translated 2>/dev/null || echo 0)"
@@ -47,9 +47,9 @@ on run argv
   set theIcon to item 1 of argv
   set theText to item 2 of argv
   if theIcon is "stop" then
-    display dialog theText with title "HerbivoR" buttons {"OK"} default button "OK" with icon stop
+    display dialog theText with title "Herbivora" buttons {"OK"} default button "OK" with icon stop
   else
-    display dialog theText with title "HerbivoR" buttons {"OK"} default button "OK" with icon note
+    display dialog theText with title "Herbivora" buttons {"OK"} default button "OK" with icon note
   end if
 end run
 APPLESCRIPT
@@ -58,7 +58,7 @@ APPLESCRIPT
 notify() { # notify <message>
   /usr/bin/osascript - "$1" >/dev/null 2>&1 <<'APPLESCRIPT'
 on run argv
-  display notification (item 1 of argv) with title "HerbivoR setup"
+  display notification (item 1 of argv) with title "Herbivora setup"
 end run
 APPLESCRIPT
 }
@@ -197,7 +197,7 @@ else
 fi
 
 sync_payload() {
-  [[ -d "$PAYLOAD" ]] || fail "This copy of HerbivoR.app is incomplete (no payload). Download the DMG again."
+  [[ -d "$PAYLOAD" ]] || fail "This copy of Herbivora.app is incomplete (no payload). Download the DMG again."
 
   if [[ -d "$APP_DIR" && "$installed_version" != "$payload_version" ]]; then
     echo "Upgrading $installed_version -> $payload_version: clearing old program files."
@@ -208,7 +208,7 @@ sync_payload() {
   mkdir -p "$APP_DIR"
   echo "Copying program files to $APP_DIR"
   /usr/bin/rsync -a --exclude '.venv' --exclude 'models' "$PAYLOAD/" "$APP_DIR/" \
-    || fail "Could not copy HerbivoR into $APP_DIR."
+    || fail "Could not copy Herbivora into $APP_DIR."
   # Model weights (hundreds of MB) are downloaded once and never overwritten.
   mkdir -p "$APP_DIR/models"
   /usr/bin/rsync -a --exclude '*.pt' --exclude '*.pth' --exclude '*.safetensors' \
@@ -234,8 +234,8 @@ runtime_ready || needs_setup=1
 
 if [[ $needs_setup -eq 1 ]]; then
   if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    echo "Another HerbivoR setup is already running ($LOCK_DIR)."
-    alert note "HerbivoR setup is already running in another window.
+    echo "Another Herbivora setup is already running ($LOCK_DIR)."
+    alert note "Herbivora setup is already running in another window.
 
 If that is not true, delete this folder and try again:
 $LOCK_DIR"
@@ -245,19 +245,19 @@ $LOCK_DIR"
 
   sync_payload
 
-  PY="$(ensure_python)" || fail "HerbivoR needs Python 3.10 or newer and could not download its own copy.
+  PY="$(ensure_python)" || fail "Herbivora needs Python 3.10 or newer and could not download its own copy.
 
-Install Python from https://www.python.org/downloads/macos/ and open HerbivoR again."
+Install Python from https://www.python.org/downloads/macos/ and open Herbivora again."
   echo "Using Python: $PY"
 
-  echo "Starting the HerbivoR installer …"
+  echo "Starting the Herbivora installer …"
   if ! "$PY" "$APP_DIR/packaging/bootstrap_install.py" --root "$APP_DIR" --gui --app-mode; then
-    echo "Setup was cancelled or did not finish. Open HerbivoR to retry."
+    echo "Setup was cancelled or did not finish. Open Herbivora to retry."
     exit 0
   fi
   if ! runtime_ready; then
     echo "Setup returned without installing all required runtime packages."
-    alert stop "HerbivoR setup is incomplete. Open HerbivoR to retry."
+    alert stop "Herbivora setup is incomplete. Open Herbivora to retry."
     exit 0
   fi
   echo "$payload_version" > "$STAMP_FILE"
@@ -265,6 +265,6 @@ Install Python from https://www.python.org/downloads/macos/ and open HerbivoR ag
   trap - EXIT
 fi
 
-cd "$APP_DIR" || fail "Missing $APP_DIR — open HerbivoR again to reinstall."
+cd "$APP_DIR" || fail "Missing $APP_DIR — open Herbivora again to reinstall."
 echo "Launching GUI from $APP_DIR"
 exec "$VENV_PY" -m gui.main

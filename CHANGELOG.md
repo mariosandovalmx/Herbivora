@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to HerbivoR are documented in this file.
+All notable changes to Herbivora are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.12] — 2026-08-05
 
 ### Added
-- macOS: the DMG now ships `HerbivoR.app` with an `Applications` shortcut, so
+- macOS: the DMG now ships `Herbivora.app` with an `Applications` shortcut, so
   installation is a drag and a double-click. No Terminal, no `.command` file.
 - The installer window title and heading now show the version being installed,
   and the install log records it as its first line.
@@ -50,14 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Windows launchers no longer leave a black console (`cmd`) window open: shortcuts and
-  Setup start `pythonw.exe -m gui.main`, and `HerbivoR.bat` detaches the GUI then exits.
+  Setup start `pythonw.exe -m gui.main`, and `Herbivora.bat` detaches the GUI then exits.
   Crashes are still written to `gui_error.log`.
 
 ## [1.3.8] — 2026-07-28
 
 ### Changed
-- Windows Setup always runs dependency install automatically (no “Run Install_HerbivoR.bat”
-  checkbox). The Finished page shows a single optional **Launch HerbivoR** checkbox.
+- Windows Setup always runs dependency install automatically (no “Run Install_Herbivora.bat”
+  checkbox). The Finished page shows a single optional **Launch Herbivora** checkbox.
 
 ## [1.3.7] — 2026-07-28
 
@@ -67,8 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Private Python install uses a **portable CPython** (Astral python-build-standalone
   with Tcl/Tk) instead of the silent python.org EXE, which often reported success
   without creating `python.exe` on some PCs.
-- Double-clicking `HerbivoR.bat` / the shortcut auto-runs setup when `.venv` is missing
-  (`Install_HerbivoR.bat /auto`) so users do not need manual repair steps.
+- Double-clicking `Herbivora.bat` / the shortcut auto-runs setup when `.venv` is missing
+  (`Install_Herbivora.bat /auto`) so users do not need manual repair steps.
 
 ## [1.3.6] — 2026-07-28
 
@@ -104,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.2] — 2026-07-28
 
 ### Changed
-- HerbivoR-trained Hub weights (`best_unet_shape.pth`, `best_model.pth`) relicensed
+- Herbivora-trained Hub weights (`best_unet_shape.pth`, `best_model.pth`) relicensed
   to **PolyForm Noncommercial 1.0.0** (aligned with the application). Model card and
   docs updated; MobileSAM / BiRefNet remain under their own licenses.
 
@@ -119,9 +119,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0] — 2026-07-28
 
 ### Added
-- One-click bootstrap installer: `Install_HerbivoR.bat` (Windows) and `Install_HerbivoR.command` (macOS/Linux).
+- One-click bootstrap installer: `Install_Herbivora.bat` (Windows) and `Install_Herbivora.command` (macOS/Linux).
 - `packaging/bootstrap_install.py` — auto-detects NVIDIA GPU, installs private Python on Windows when needed, creates `.venv`, installs PyTorch + deps, downloads models, creates shortcuts.
-- Maintainer builders: `packaging/build_windows_setup.bat` (Inno Setup → `HerbivoR-Setup-*.exe`) and `packaging/build_macos_dmg.sh` (→ `HerbivoR-*.dmg`).
+- Maintainer builders: `packaging/build_windows_setup.bat` (Inno Setup → `Herbivora-Setup-*.exe`) and `packaging/build_macos_dmg.sh` (→ `Herbivora-*.dmg`).
 - End-user documentation: `USER_GUIDE.md` (step-by-step for Windows, macOS, Linux).
 
 ### Changed
@@ -130,11 +130,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] — 2026-07-28
 
 ### Added
-- App branding: leaf icon for the GUI window, header, Windows shortcut (`.lnk`), and optional macOS `HerbivoR.app`.
+- App branding: leaf icon for the GUI window, header, Windows shortcut (`.lnk`), and optional macOS `Herbivora.app`.
 - `assets/` icon set (`herbivor.ico`, `herbivor_256.png`, master PNG) plus rebuild/shortcut helpers under `packaging/`.
 
 ### Changed
-- Installers create / document the leaf-icon launcher (`HerbivoR.lnk` on Windows; optional `create_macos_app.sh` on macOS).
+- Installers create / document the leaf-icon launcher (`Herbivora.lnk` on Windows; optional `create_macos_app.sh` on macOS).
 
 ## [1.1.0] — 2026-07-28
 
@@ -154,13 +154,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.1] — 2026-07-28
 
 ### Added
-- Download HerbivoR U-Nets from Hugging Face (`mariosandovalmx/HerbivoR`); MobileSAM from Ultralytics assets.
+- Download Herbivora U-Nets from Hugging Face (`mariosandovalmx/Herbivora`); MobileSAM from Ultralytics assets.
 - **Check installation** downloads missing weights into `models/` automatically.
 - Packaging scripts for Windows (PyInstaller onedir) and macOS (build on a Mac).
 - `VERSION`, `CHANGELOG.md`, and release / “test on another PC” docs.
 
 ### Changed
-- MobileSAM is no longer hosted in the HerbivoR Hub repo (third-party weights).
+- MobileSAM is no longer hosted in the Herbivora Hub repo (third-party weights).
 
 ## [1.0.0] — 2026-07-01
 

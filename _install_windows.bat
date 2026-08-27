@@ -17,7 +17,7 @@ if /i not "%TORCH_FLAVOR%"=="cpu" if /i not "%TORCH_FLAVOR%"=="cuda" (
 )
 
 echo ============================================
-echo   HerbivoR - Dependency Installation
+echo   Herbivora - Dependency Installation
 echo   PyTorch: %TORCH_FLAVOR%
 echo ============================================
 echo.
@@ -120,7 +120,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Installing HerbivoR packages from requirements.txt...
+echo Installing Herbivora packages from requirements.txt...
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 if errorlevel 1 (
     echo ERROR in pip install -r requirements.txt
@@ -147,18 +147,18 @@ echo   - mobile_sam.pt
 echo   - best_unet_shape.pth
 echo   - best_model.pth
 echo.
-echo Open the application with: HerbivoR.bat
+echo Open the application with: Herbivora.bat
 if /i "%TORCH_FLAVOR%"=="cuda" (
     echo.
     echo CUDA tip: run check_gpu.py if inference still uses CPU.
 )
 echo.
-echo Creating HerbivoR.lnk shortcut with app icon...
+echo Creating Herbivora.lnk shortcut with app icon...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\create_windows_shortcut.ps1" 2>nul
 if errorlevel 1 (
-    echo   ^(shortcut skipped — run Create_HerbivoR_Shortcut.bat later^)
+    echo   ^(shortcut skipped — run Create_Herbivora_Shortcut.bat later^)
 ) else (
-    echo   Use HerbivoR.lnk ^(or the Desktop shortcut^) for the leaf icon in Explorer.
+    echo   Use Herbivora.lnk ^(or the Desktop shortcut^) for the leaf icon in Explorer.
 )
 echo.
 if /i not "%HERBIVOR_INSTALL_PAUSE%"=="0" pause

@@ -1,4 +1,4 @@
-"""PyInstaller entry: launch HerbivoR GUI."""
+"""PyInstaller entry: launch Herbivora GUI."""
 
 from __future__ import annotations
 

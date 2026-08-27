@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
 echo ============================================
-echo   HerbivoR - Choose PyTorch build
+echo   Herbivora - Choose PyTorch build
 echo ============================================
 echo.
 echo   1  CPU   - works everywhere (recommended if unsure)

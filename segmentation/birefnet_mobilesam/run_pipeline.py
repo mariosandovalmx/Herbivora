@@ -31,6 +31,7 @@ from image_io import VALID_IMAGE_EXTENSIONS as VALID_EXT, load_bgr  # noqa: E402
 from utils.circle_utils import detect_blue_circle, crop_circle
 from utils.mask_utils import (
     box_region_mask,
+    component_at_point,
     dilate_mask,
     fill_holes,
     largest_component,
@@ -108,6 +109,7 @@ def _segment_with_fallback(
     device,
     box_prior: tuple[int, int, int, int] | None = None,
     point_prior: tuple[int, int] | None = None,
+    mask_prior: np.ndarray | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Run BiRefNet + MobileSAM with robust fallbacks.
 
@@ -131,6 +133,10 @@ def _segment_with_fallback(
     point_prior: optional (x, y) user click (interactive GUI). When given and
     box_prior is absent, MobileSAM is prompted at that click instead of the
     BiRefNet centroid. BiRefNet still runs and is merged for edge precision.
+
+    mask_prior: optional boolean H×W mask from an interactive MobileSAM click.
+    When given, this ROI is preserved as the segmentation floor; BiRefNet only
+    refines edges inside a margin around it (mobilesam_primary merge).
 
     Returns (final_mask, seg_meta_dict).
     """
@@ -163,6 +169,37 @@ def _segment_with_fallback(
         # Discard anything BiRefNet marked as salient outside the detector's
         # box neighborhood before it can influence the SAM prompt or centroid.
         M_bi = M_bi & region_mask
+
+    # ---- Interactive ROI: user MobileSAM mask is the floor ----
+    if mask_prior is not None:
+        M_sam = mask_prior.astype(bool)
+        if M_sam.shape[:2] != (H, W):
+            raise ValueError(
+                f"mask_prior shape {M_sam.shape[:2]} != image {(H, W)}"
+            )
+        margin_k = int(cfg["leaf"].get("mask_prior_margin_px", 20))
+        roi = dilate_mask(M_sam, k=margin_k)
+        M_bi = M_bi & roi
+        M_refined = merge_masks(M_bi, M_sam, "mobilesam_primary")
+        M_final = (M_refined | M_sam) & roi
+        if point_prior is not None:
+            M_final = component_at_point(M_final, point_prior[0], point_prior[1])
+        else:
+            M_final = largest_component(M_final)
+        iou_final = mask_iou(M_bi, M_final)
+        seg_meta = {
+            "hybrid_mode": "mobilesam_primary",
+            "iou_models": round(float(iou_final), 4),
+            "low_confidence": bool(
+                iou_final < cfg["hybrid"]["agreement_threshold"]
+            ),
+            "fallback_used": "mask_prior",
+            "box_prior_used": box_prior is not None,
+            "point_prior_used": point_prior is not None,
+            "point_prior": list(point_prior) if point_prior is not None else None,
+            "mask_prior_used": True,
+        }
+        return M_final, seg_meta
 
     # ---- MobileSAM attempt 1 ----
     if region_box is not None:
@@ -327,10 +364,12 @@ def process_image(
     point_prior_dir: Path | None = None,
     point_prior: tuple[int, int] | None = None,
     circle_prior: dict | None = None,
+    mask_prior: np.ndarray | None = None,
+    output_stem: str | None = None,
 ) -> dict:
     from utils.segmentation_utils import get_device
 
-    stem = image_path.stem
+    stem = output_stem or image_path.stem
     device = get_device()
 
     image = load_bgr(image_path)
@@ -384,7 +423,7 @@ def process_image(
     # ---- Step 2: segmentation with fallback ----
     M_final, seg_meta = _segment_with_fallback(
         image, circle_info, cfg, birefnet, mobilesam, device,
-        box_prior=box_prior, point_prior=point_prior,
+        box_prior=box_prior, point_prior=point_prior, mask_prior=mask_prior,
     )
 
     if M_final.sum() == 0:

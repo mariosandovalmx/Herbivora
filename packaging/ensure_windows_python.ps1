@@ -1,13 +1,13 @@
-﻿# Ensures a private per-user CPython for HerbivoR (Windows) with working Tcl/Tk.
+﻿# Ensures a private per-user CPython for Herbivora (Windows) with working Tcl/Tk.
 # Primary: Astral python-build-standalone (portable tar.gz extract - reliable).
 # Fallback: official python.org silent EXE (often fails to honor TargetDir).
 $ErrorActionPreference = "Stop"
 $PyVersion = "3.12.13"
 $StandaloneTag = "20260303"
-$Target = Join-Path $env:LOCALAPPDATA "HerbivoR\Python"
+$Target = Join-Path $env:LOCALAPPDATA "Herbivora\Python"
 $PythonExe = Join-Path $Target "python.exe"
 
-function Test-HerbivoRPython {
+function Test-HerbivoraPython {
     param([string]$Exe)
     if (-not (Test-Path $Exe)) { return $false }
     & $Exe -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)"
@@ -158,7 +158,7 @@ function Install-FromOfficialExe {
     }
 }
 
-if (Test-HerbivoRPython $PythonExe) {
+if (Test-HerbivoraPython $PythonExe) {
     Write-Host "Private Python already present: $PythonExe"
     exit 0
 }
@@ -179,7 +179,7 @@ try {
     }
 }
 
-if (-not (Test-HerbivoRPython $PythonExe)) {
+if (-not (Test-HerbivoraPython $PythonExe)) {
     Write-Error "Private Python at $PythonExe is present but tkinter/Tcl-Tk is not usable"
     exit 1
 }

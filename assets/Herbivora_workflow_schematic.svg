@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Herbivora overall analytical workflow">
+  <title>Herbivora overall analytical workflow</title>
+  <desc>Editable schematic for CorelDRAW: three modular stages with colored panels.</desc>
+
+  <!-- Background -->
+  <rect id="background" x="0" y="0" width="1600" height="900" fill="#FFFFFF"/>
+
+  <!-- Title -->
+  <g id="title">
+    <text x="800" y="58" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="700" fill="#1A1A1A">Herbivora overall analytical workflow</text>
+  </g>
+
+  <!-- ========================= STAGE 1 ========================= -->
+  <g id="stage-1">
+    <rect x="40" y="100" width="460" height="660" rx="18" ry="18" fill="#E8F4FC" stroke="#2F6FAE" stroke-width="4"/>
+    <rect x="60" y="120" width="120" height="36" rx="8" ry="8" fill="#2F6FAE"/>
+    <text x="120" y="145" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">Stage 1</text>
+    <text x="270" y="175" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#1F4E79">Leaf segmentation &amp; standardization</text>
+
+    <!-- Input photo frame -->
+    <g id="stage1-input">
+      <rect x="80" y="210" width="170" height="150" rx="8" ry="8" fill="#C9B896" stroke="#6B5A3E" stroke-width="2"/>
+      <!-- soil texture dots -->
+      <circle cx="110" cy="240" r="4" fill="#8B7355"/>
+      <circle cx="150" cy="265" r="3" fill="#A0896A"/>
+      <circle cx="200" cy="235" r="5" fill="#7A6548"/>
+      <circle cx="180" cy="300" r="3" fill="#9A8260"/>
+      <!-- leaf -->
+      <ellipse cx="155" cy="285" rx="55" ry="35" fill="#4CAF50" stroke="#2E7D32" stroke-width="2" transform="rotate(-20 155 285)"/>
+      <ellipse cx="175" cy="275" rx="18" ry="12" fill="#FFFFFF" opacity="0.85"/>
+      <path d="M120 300 Q140 310 160 305" fill="none" stroke="#2E7D32" stroke-width="2"/>
+      <text x="165" y="385" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#333333">Input leaf image</text>
+    </g>
+
+    <!-- Arrow inside stage 1 -->
+    <g id="stage1-arrow">
+      <line x1="265" y1="285" x2="300" y2="285" stroke="#2F6FAE" stroke-width="3"/>
+      <polygon points="300,275 320,285 300,295" fill="#2F6FAE"/>
+    </g>
+
+    <!-- White canvas composite -->
+    <g id="stage1-white-canvas">
+      <rect x="330" y="210" width="140" height="150" rx="8" ry="8" fill="#FFFFFF" stroke="#2F6FAE" stroke-width="2"/>
+      <ellipse cx="400" cy="285" rx="45" ry="30" fill="#4CAF50" stroke="#2E7D32" stroke-width="2" transform="rotate(-15 400 285)"/>
+      <ellipse cx="415" cy="275" rx="12" ry="8" fill="#FFFFFF" opacity="0.9"/>
+      <!-- blue scale dots -->
+      <circle cx="355" cy="235" r="7" fill="#1E88E5" stroke="#0D47A1" stroke-width="1"/>
+      <circle cx="375" cy="230" r="7" fill="#1E88E5" stroke="#0D47A1" stroke-width="1"/>
+      <text x="400" y="385" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#333333">White canvas</text>
+    </g>
+
+    <!-- Binary mask -->
+    <g id="stage1-binary-mask">
+      <rect x="120" y="420" width="280" height="180" rx="10" ry="10" fill="#FFFFFF" stroke="#2F6FAE" stroke-width="2"/>
+      <rect x="145" y="445" width="110" height="120" fill="#F5F5F5" stroke="#999999" stroke-width="1"/>
+      <ellipse cx="200" cy="505" rx="40" ry="28" fill="#111111"/>
+      <text x="200" y="585" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#555555">Binary mask</text>
+
+      <rect x="275" y="445" width="110" height="120" fill="#FFFFFF" stroke="#999999" stroke-width="1"/>
+      <ellipse cx="330" cy="505" rx="40" ry="28" fill="#4CAF50"/>
+      <circle cx="295" cy="465" r="6" fill="#1E88E5"/>
+      <text x="330" y="585" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#555555">+ optional scale</text>
+    </g>
+
+    <text x="270" y="640" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1F4E79">BiRefNet + MobileSAM � blue-dot scale � cm�</text>
+    <text x="270" y="720" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-style="italic" fill="#2F6FAE">Output: composite + mask + scale metadata</text>
+  </g>
+
+  <!-- Arrow 1 � 2 -->
+  <g id="arrow-1-to-2">
+    <line x1="510" y1="430" x2="555" y2="430" stroke="#555555" stroke-width="5"/>
+    <polygon points="555,415 585,430 555,445" fill="#555555"/>
+  </g>
+
+  <!-- ========================= STAGE 2 ========================= -->
+  <g id="stage-2">
+    <rect x="595" y="100" width="460" height="660" rx="18" ry="18" fill="#EAF7EE" stroke="#2E7D32" stroke-width="4"/>
+    <rect x="615" y="120" width="120" height="36" rx="8" ry="8" fill="#2E7D32"/>
+    <text x="675" y="145" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">Stage 2</text>
+    <text x="825" y="175" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#1B5E20">Contour completion (ROI)</text>
+
+    <!-- Partial mask -->
+    <g id="stage2-partial">
+      <rect x="635" y="210" width="170" height="170" rx="8" ry="8" fill="#FFFFFF" stroke="#2E7D32" stroke-width="2"/>
+      <!-- incomplete leaf silhouette with holes -->
+      <path d="M680 260 C700 230, 780 230, 790 270 C800 310, 770 350, 730 355 C700 360, 665 330, 680 260 Z" fill="#222222"/>
+      <ellipse cx="720" cy="290" rx="14" ry="10" fill="#FFFFFF"/>
+      <ellipse cx="755" cy="310" rx="10" ry="8" fill="#FFFFFF"/>
+      <!-- bitten margin notch -->
+      <path d="M680 260 Q690 275 685 290" fill="#FFFFFF"/>
+      <text x="720" y="405" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#333333">Partial mask</text>
+      <text x="720" y="422" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#666666">(holes + missing margin)</text>
+    </g>
+
+    <!-- Arrow -->
+    <g id="stage2-arrow">
+      <line x1="820" y1="295" x2="855" y2="295" stroke="#2E7D32" stroke-width="3"/>
+      <polygon points="855,285 875,295 855,305" fill="#2E7D32"/>
+    </g>
+
+    <!-- Completed ROI -->
+    <g id="stage2-roi">
+      <rect x="885" y="210" width="140" height="170" rx="8" ry="8" fill="#FFFFFF" stroke="#2E7D32" stroke-width="2"/>
+      <ellipse cx="955" cy="295" rx="48" ry="42" fill="#66BB6A" opacity="0.35"/>
+      <ellipse cx="955" cy="295" rx="48" ry="42" fill="none" stroke="#00897B" stroke-width="3" stroke-dasharray="6 4"/>
+      <text x="955" y="405" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#333333">Filled ROI</text>
+      <text x="955" y="422" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#666666">completed silhouette</text>
+    </g>
+
+    <!-- Interactive edit callout -->
+    <g id="stage2-edit">
+      <rect x="655" y="460" width="340" height="90" rx="10" ry="10" fill="#FFFFFF" stroke="#43A047" stroke-width="2" stroke-dasharray="5 3"/>
+      <!-- pencil icon -->
+      <g transform="translate(680 485)">
+        <rect x="0" y="8" width="36" height="10" rx="2" fill="#FB8C00" transform="rotate(-35 18 13)"/>
+        <polygon points="0,20 -4,28 4,24" fill="#5D4037"/>
+      </g>
+      <text x="820" y="505" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#1B5E20">Interactive contour edit</text>
+      <text x="820" y="528" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#555555">add / remove / line / polygon tools</text>
+    </g>
+
+    <text x="825" y="600" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#1B5E20">U-Net mask-to-mask � recovers gaps &amp; margins</text>
+    <text x="825" y="720" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-style="italic" fill="#2E7D32">Output: leaf ROI silhouette</text>
+  </g>
+
+  <!-- Arrow 2 � 3 -->
+  <g id="arrow-2-to-3">
+    <line x1="1065" y1="430" x2="1110" y2="430" stroke="#555555" stroke-width="5"/>
+    <polygon points="1110,415 1140,430 1110,445" fill="#555555"/>
+  </g>
+
+  <!-- ========================= STAGE 3 ========================= -->
+  <g id="stage-3">
+    <rect x="1150" y="100" width="410" height="660" rx="18" ry="18" fill="#FFF4E8" stroke="#EF6C00" stroke-width="4"/>
+    <rect x="1170" y="120" width="120" height="36" rx="8" ry="8" fill="#EF6C00"/>
+    <text x="1230" y="145" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF">Stage 3</text>
+    <text x="1355" y="175" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#E65100">Damage segmentation &amp; quantification</text>
+
+    <!-- Damage overlay -->
+    <g id="stage3-damage">
+      <rect x="1210" y="210" width="290" height="200" rx="10" ry="10" fill="#FFFFFF" stroke="#EF6C00" stroke-width="2"/>
+      <ellipse cx="1355" cy="310" rx="90" ry="70" fill="#81C784" opacity="0.5"/>
+      <ellipse cx="1355" cy="310" rx="90" ry="70" fill="none" stroke="#2E7D32" stroke-width="2"/>
+      <!-- damage patches -->
+      <ellipse cx="1320" cy="290" rx="22" ry="16" fill="#E53935" opacity="0.85"/>
+      <ellipse cx="1385" cy="330" rx="18" ry="14" fill="#FF7043" opacity="0.9"/>
+      <!-- holes -->
+      <ellipse cx="1360" cy="275" rx="10" ry="8" fill="#FFFFFF" stroke="#BDBDBD" stroke-width="1"/>
+      <ellipse cx="1310" cy="340" rx="8" ry="7" fill="#FFFFFF" stroke="#BDBDBD" stroke-width="1"/>
+      <text x="1355" y="435" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#333333">Damage mask + geometric holes</text>
+    </g>
+
+    <!-- Metrics card -->
+    <g id="stage3-metrics">
+      <rect x="1225" y="460" width="260" height="110" rx="10" ry="10" fill="#FFFFFF" stroke="#EF6C00" stroke-width="2"/>
+      <text x="1355" y="490" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#E65100">Metrics</text>
+      <text x="1355" y="520" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#333333">Herbivory %</text>
+      <text x="1355" y="548" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#555555">Area (cm�)  �  optional</text>
+    </g>
+
+    <!-- Revise / export -->
+    <g id="stage3-edit-export">
+      <rect x="1225" y="590" width="120" height="50" rx="8" ry="8" fill="#FFE0B2" stroke="#EF6C00" stroke-width="1.5"/>
+      <text x="1285" y="621" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#E65100">Revise mask</text>
+      <line x1="1355" y1="615" x2="1385" y2="615" stroke="#EF6C00" stroke-width="2"/>
+      <polygon points="1385,608 1400,615 1385,622" fill="#EF6C00"/>
+      <rect x="1405" y="590" width="90" height="50" rx="8" ry="8" fill="#EF6C00"/>
+      <text x="1450" y="621" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#FFFFFF">Export</text>
+    </g>
+
+    <text x="1355" y="680" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#E65100">U-Net damage + holes � interactive revision</text>
+    <text x="1355" y="720" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-style="italic" fill="#EF6C00">Output: % herbivory / areas / CSV</text>
+  </g>
+
+  <!-- Footer modularity note -->
+  <g id="footer">
+    <rect x="40" y="790" width="1520" height="70" rx="12" ry="12" fill="#F5F5F5" stroke="#BDBDBD" stroke-width="1.5"/>
+    <text x="800" y="833" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#424242">Modular stages: inspect, re-run, or correct intermediates without repeating the full pipeline.</text>
+  </g>
+</svg>

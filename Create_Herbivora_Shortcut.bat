@@ -1,5 +1,5 @@
 @echo off
-REM Create HerbivoR.lnk in this folder (and optionally Desktop) with the leaf icon.
+REM Create Herbivora.lnk in this folder (and optionally Desktop) with the leaf icon.
 setlocal
 cd /d "%~dp0"
 
@@ -10,6 +10,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Shortcut created: HerbivoR.lnk  ^(leaf icon; launches GUI without a console window^)
+echo Shortcut created: Herbivora.lnk  ^(leaf icon; launches GUI without a console window^)
 pause
 exit /b 0

@@ -68,11 +68,11 @@ Thumbs.db
 *.xlsx
 *.pdf
 
-# HerbivoR runtime / local data
+# Herbivora runtime / local data
 gui_error.log
 *.log
 *.lnk
-HerbivoR.app/
+Herbivora.app/
 assets/*.iconset/
 dist/dmg_stage/
 
@@ -85,6 +85,10 @@ leaf_unet_dataset/
 leaf_reconstruction/
 Leaves/
 backup_snapshot_*/
+
+# Local Contour fine-tune package + prepared datasets (do not commit)
+train_contour/
+datasets_finetune/
 
 # Model weights (download via download_models.py)
 models/*.pt

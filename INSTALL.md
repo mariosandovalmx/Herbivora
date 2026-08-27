@@ -1,4 +1,4 @@
-# HerbivoR — Installation Reference
+# Herbivora — Installation Reference
 
 End users: follow the step-by-step **[USER_GUIDE.md](USER_GUIDE.md)**.
 
@@ -12,9 +12,9 @@ Releases publish a **small** installer (Setup.exe / DMG when available) or **sou
 
 | Platform | What to run |
 |----------|-------------|
-| Windows | **`HerbivoR-Setup-vX.Y.Z.exe`** from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases), **or** extract the source ZIP and double-click **`Install_HerbivoR.bat`** |
-| macOS | Open **`HerbivoR-vX.Y.Z.dmg`**, drag the HerbivoR leaf icon to **Applications**, and open it. Source fallback: `Install_HerbivoR.command` |
-| Linux | `./Install_HerbivoR.command` or `./install.sh` |
+| Windows | **`Herbivora-Setup-vX.Y.Z.exe`** from [Releases](https://github.com/mariosandovalmx/Herbivora/releases), **or** extract the source ZIP and double-click **`Install_Herbivora.bat`** |
+| macOS | Open **`Herbivora-vX.Y.Z.dmg`**, drag the Herbivora leaf icon to **Applications**, and open it. Source fallback: `Install_Herbivora.command` |
+| Linux | `./Install_Herbivora.command` or `./install.sh` |
 
 The first-time setup:
 
@@ -23,7 +23,7 @@ The first-time setup:
 3. Auto-detects NVIDIA GPU → CUDA 12.4, else CPU (macOS: default wheels + MPS)
 4. Installs `requirements.txt`
 5. Downloads models (~226 MB)
-6. Creates platform shortcuts when installing from source (the macOS DMG already contains `HerbivoR.app`)
+6. Creates platform shortcuts when installing from source (the macOS DMG already contains `Herbivora.app`)
 
 Full walkthrough: **[USER_GUIDE.md](USER_GUIDE.md)**.
 
@@ -43,7 +43,7 @@ Full walkthrough: **[USER_GUIDE.md](USER_GUIDE.md)**.
 ### macOS / Linux
 
 ```bash
-chmod +x install.sh herbivor.sh Install_HerbivoR.command
+chmod +x install.sh herbivora.sh Install_Herbivora.command
 ./install.sh
 ```
 
@@ -67,9 +67,9 @@ On Windows use `.venv\Scripts\` instead of `.venv/bin/`.
 
 | Platform | Command |
 |----------|---------|
-| Windows | `HerbivoR.lnk` or `HerbivoR.bat` |
-| macOS | `HerbivoR.app` or `./herbivor.sh` |
-| Linux | `./herbivor.sh` |
+| Windows | `Herbivora.lnk` or `Herbivora.bat` |
+| macOS | `Herbivora.app` or `./herbivora.sh` |
+| Linux | `./herbivora.sh` |
 
 If the GUI fails on Windows, check `gui_error.log`.
 
@@ -115,14 +115,14 @@ Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 packaging\build_windows_setup.bat
 ```
 
-Output: `dist\HerbivoR-Setup-vVERSION.exe` — attach to the GitHub Release.
+Output: `dist\Herbivora-Setup-vVERSION.exe` — attach to the GitHub Release.
 
 ### Build macOS DMG
 
 A native `.dmg` requires macOS (`hdiutil`). **You do not need a local Mac:** GitHub Actions builds it.
 
-1. Publish the GitHub Release for your tag (attach `HerbivoR-Setup-v*.exe` from Windows if ready).
-2. Workflow `.github/workflows/macos-dmg.yml` builds `HerbivoR-vVERSION.dmg` on `macos-latest` and uploads it, plus `SHA256SUMS`.
+1. Publish the GitHub Release for your tag (attach `Herbivora-Setup-v*.exe` from Windows if ready).
+2. Workflow `.github/workflows/macos-dmg.yml` builds `Herbivora-vVERSION.dmg` on `macos-latest` and uploads it, plus `SHA256SUMS`.
 3. To rebuild for an existing tag: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.5`).
 
 Optional local build (only if you have a Mac):
@@ -132,10 +132,10 @@ chmod +x packaging/build_macos_dmg.sh
 ./packaging/build_macos_dmg.sh
 ```
 
-Output: `dist/HerbivoR-vVERSION.dmg`.
+Output: `dist/Herbivora-vVERSION.dmg`.
 
-The DMG contains `HerbivoR.app`, an Applications shortcut, and ` READ ME FIRST.txt`.
-The app uses the HerbivoR leaf artwork from `assets/herbivor_icon.png`; first
+The DMG contains `Herbivora.app`, an Applications shortcut, and ` READ ME FIRST.txt`.
+The app uses the Herbivora leaf artwork from `assets/herbivor_icon.png`; first
 launch performs the dependency and model setup without asking the user to run a
 Terminal command.
 
@@ -144,17 +144,17 @@ blocked on every Mac except the one that built them, because the download carrie
 a `com.apple.quarantine` flag and there is no notarization ticket. Confirm with:
 
 ```bash
-syspolicy_check distribution dist/dmg_stage/HerbivoR.app
+syspolicy_check distribution dist/dmg_stage/Herbivora.app
 ```
 
 Two distinct symptoms follow from the same cause. Launching the app from inside
-the mounted DMG produces a dead-end *"The application "HerbivoR.app" can't be
+the mounted DMG produces a dead-end *"The application "Herbivora.app" can't be
 opened."* alert with only an OK button; launching it from `/Applications`
 produces the recoverable *"Apple could not verify …"* alert whose block can be
 lifted in **System Settings → Privacy & Security → Open Anyway**. The
 ` READ ME FIRST.txt` shipped in the DMG walks users through this, and the
 recipient can skip it entirely with
-`xattr -dr com.apple.quarantine /Applications/HerbivoR.app`.
+`xattr -dr com.apple.quarantine /Applications/Herbivora.app`.
 
 Verify downloads with `SHA256SUMS` from the Release (`shasum -a 256 -c SHA256SUMS` on macOS/Linux; `Get-FileHash` on Windows).
 
@@ -166,7 +166,7 @@ Large onedir builds are **not** the supported user channel. See [packaging/READM
 
 1. Bump `VERSION` and `CHANGELOG.md`.
 2. Commit and push `main`.
-3. Build `HerbivoR-Setup-vVERSION.exe` on Windows (`packaging\build_windows_setup.bat`
+3. Build `Herbivora-Setup-vVERSION.exe` on Windows (`packaging\build_windows_setup.bat`
    regenerates `packaging\installer_license.txt` from `LICENSE` + `THIRD_PARTY_NOTICES.md`);
    attach the Setup when creating the Release (+ source ZIP is automatic).
 4. Tag and publish — CI then attaches the macOS DMG and `SHA256SUMS`:
@@ -174,7 +174,7 @@ Large onedir builds are **not** the supported user channel. See [packaging/READM
 ```bash
 git tag v1.3.0
 git push origin main --tags
-gh release create v1.3.0 --title "HerbivoR v1.3.0" --notes-file CHANGELOG.md dist/HerbivoR-Setup-v1.3.0.exe
+gh release create v1.3.0 --title "Herbivora v1.3.0" --notes-file CHANGELOG.md dist/Herbivora-Setup-v1.3.0.exe
 ```
 
 Do **not** attach multi-GB PyInstaller / CUDA ZIPs to GitHub Releases (2 GB asset limit).

@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for HerbivoR (onedir). Run via packaging/build_windows.bat."""
+"""PyInstaller spec for Herbivora (onedir). Run via packaging/build_windows.bat."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="HerbivoR",
+    name="Herbivora",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -123,5 +123,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="HerbivoR",
+    name="Herbivora",
 )

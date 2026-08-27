@@ -1,4 +1,4 @@
-"""Resolve and apply the HerbivoR app icon (window + optional CTkImage)."""
+"""Resolve and apply the Herbivora app icon (window + optional CTkImage)."""
 
 from __future__ import annotations
 

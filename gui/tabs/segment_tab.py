@@ -29,6 +29,16 @@ from gui.widgets.image_carousel import ImageCarousel
 from gui.widgets.split_pane import SplitPane
 from gui.widgets.info_button import InfoButton
 
+# Distinct SAM preview colors for multi-leaf clicks on the same photo.
+_MULTI_LEAF_PREVIEW_COLORS: tuple[tuple[int, int, int], ...] = (
+    (135, 206, 250),
+    (144, 238, 144),
+    (255, 182, 193),
+    (255, 218, 185),
+    (221, 160, 221),
+    (255, 255, 153),
+)
+
 
 class SegmentTab(ctk.CTkFrame):
     def __init__(self, master, state: ProjectState, on_change, **kwargs) -> None:
@@ -152,7 +162,8 @@ class SegmentTab(ctk.CTkFrame):
                 "  • Leaf + scale: first click = leaf, second click = blue scale sticker "
                 "(MobileSAM). Repeat for every photo, then Run segmentation.\n\n"
                 "Multi-leaf photos: enable 'Multiple leaves per photo' on the Project tab "
-                "(method A only). Touching/overlapping leaves may merge into one component."
+                "— uses Interactive segmentation only. Click each separated leaf; use "
+                "Leaf + scale to auto-detect the blue reference dot per photo."
             ),
         ).pack(side="left", padx=4)
         self._multi_leaf_badge = ctk.CTkLabel(
@@ -249,6 +260,7 @@ class SegmentTab(ctk.CTkFrame):
         self._reanalyze_temp_dirs: list[Path] = []
         self._interactive_busy = False
         self._was_interactive = False
+        self._multi_leaf_lock_active = False
         self._scale_click_from_button = False
 
         self._adv_visible = False
@@ -408,6 +420,65 @@ class SegmentTab(ctk.CTkFrame):
         self.cleanup_reanalyze_temp()
         return []
 
+    def _is_multi_leaf_mode(self) -> bool:
+        return bool(getattr(self._state, "multi_leaf_photos", False))
+
+    def _apply_multi_leaf_method_lock(self) -> None:
+        """Multi-leaf forces Interactive segmentation; disable automatic methods."""
+        from gui.interactive_sam_session import get_session
+
+        session = get_session()
+        was_multi = getattr(self, "_multi_leaf_lock_active", False)
+        multi = self._is_multi_leaf_mode()
+        if multi:
+            self._state.segmentation_method = "interactive_mobilesam"
+            self._apply_method_label("interactive_mobilesam")
+            self._segmentation_method.configure(
+                values=[SEGMENT_METHOD_LABELS["interactive_mobilesam"]],
+                state="disabled",
+            )
+            if not was_multi:
+                session.selections.clear()
+            self._multi_leaf_lock_active = True
+            self._update_interactive_mode_panel()
+            self._apply_interactive_ui()
+        else:
+            self._segmentation_method.configure(
+                values=list(SEGMENT_METHOD_LABELS.values()),
+                state="normal",
+            )
+            if was_multi:
+                session.multi_leaves.clear()
+                session.photo_circles.clear()
+            self._multi_leaf_lock_active = False
+
+    def _multi_leaf_preview_layers(self, path: Path | None) -> list[tuple]:
+        from gui.interactive_sam_session import get_session
+
+        if path is None:
+            return []
+        stem = path.stem
+        layers = []
+        for i, sel in enumerate(get_session().leaves_for_stem(stem)):
+            if sel.mask is None or int(sel.mask.sum()) == 0:
+                continue
+            rgb = _MULTI_LEAF_PREVIEW_COLORS[i % len(_MULTI_LEAF_PREVIEW_COLORS)]
+            layers.append((sel.mask, rgb, 0.45))
+        return layers
+
+    def _auto_detect_scale_for_current_photo(self, path: Path | None) -> None:
+        """Multi-leaf + Leaf + scale: detect blue dot when opening a photo."""
+        if not self._is_multi_leaf_mode() or not self._is_leaf_scale_mode():
+            return
+        source = self._resolve_interactive_source_file() if path else None
+        if source is None:
+            return
+        from gui.interactive_sam_session import get_session
+
+        session = get_session()
+        known_mm = float(self._state.birefnet_known_diameter_mm)
+        session.ensure_photo_circle(source, known_diameter_mm=known_mm)
+
     def _on_carousel_image_changed(self, path: Path | None) -> None:
         """Restore MobileSAM preview + scale circle only on Input photos."""
         if not self._is_interactive_method():
@@ -422,29 +493,40 @@ class SegmentTab(ctk.CTkFrame):
         from gui.interactive_sam_session import get_session
 
         session = get_session()
-        sel = session.selection_for_path(path)
-        if sel is not None:
-            self._carousel.set_preview_mask(sel.mask)
+        if self._is_multi_leaf_mode():
+            self._auto_detect_scale_for_current_photo(path)
+            layers = self._multi_leaf_preview_layers(path)
+            if layers:
+                self._carousel.set_preview_masks(layers)
+            else:
+                self._carousel.clear_preview_mask()
         else:
-            self._carousel.clear_preview_mask()
+            sel = session.selection_for_path(path)
+            if sel is not None:
+                self._carousel.set_preview_mask(sel.mask)
+            else:
+                self._carousel.clear_preview_mask()
         self._apply_scale_circle_overlay(path)
         self._update_interactive_banner()
 
     def _apply_scale_circle_overlay(self, path: Path | None) -> None:
-        if not self._state.remove_blue:
+        if not self._state.remove_blue and not self._is_leaf_scale_mode():
             self._carousel.clear_scale_circle()
             return
         from gui.interactive_sam_session import get_session
 
         circle = get_session().circle_for_path(path)
+        highlight = self._is_multi_leaf_mode() and self._is_leaf_scale_mode()
         if circle and circle.get("found"):
             cx, cy = circle["center_px"]
-            self._carousel.set_scale_circle(float(cx), float(cy), float(circle["diameter_px"]))
+            self._carousel.set_scale_circle(
+                float(cx), float(cy), float(circle["diameter_px"]), highlight=highlight
+            )
         else:
             self._carousel.clear_scale_circle()
 
     def _interactive_click_mode(self) -> str:
-        mode = getattr(self._state, "interactive_click_mode", "leaf_scale")
+        mode = getattr(self._state, "interactive_click_mode", "")
         return mode if mode in ("leaf_only", "leaf_scale") else "leaf_scale"
 
     def _is_leaf_scale_mode(self) -> bool:
@@ -488,6 +570,10 @@ class SegmentTab(ctk.CTkFrame):
         if not use_scale:
             self._state.report_area_cm2 = False
             self._carousel.clear_scale_circle()
+        elif self._is_multi_leaf_mode():
+            path = self._carousel.current_path
+            self._auto_detect_scale_for_current_photo(path)
+            self._apply_scale_circle_overlay(path)
         self._update_interactive_banner()
         self._on_change()
 
@@ -549,22 +635,56 @@ class SegmentTab(ctk.CTkFrame):
         n = session.n_selected
         ready = session.mobilesam_ready
         use_scale = self._is_leaf_scale_mode()
+        multi = self._is_multi_leaf_mode()
         if not ready:
             self._warn_label.configure(text="Loading MobileSAM… please wait.")
             self._mark_scale_btn.grid_remove()
             self._warn_btn.configure(text="…", state="disabled")
+        elif multi:
+            path = self._carousel.current_path
+            stem_n = len(session.leaves_for_stem(path.stem)) if path else 0
+            if use_scale:
+                circle = session.circle_for_path(path)
+                if circle and circle.get("found"):
+                    scale_line = (
+                        f"Scale detected (orange ring): d={circle['diameter_px']:.0f}px"
+                    )
+                else:
+                    scale_line = "Scale: blue dot not found on this photo (cm² may be unavailable)"
+                self._warn_label.configure(
+                    text=(
+                        f"Multi-leaf + scale — click each separated leaf on this photo.\n"
+                        f"{scale_line}\n"
+                        f"This photo: {stem_n} leaf click(s)  ·  Total: {n}  ·  "
+                        f"Next → next photo  ·  then Run segmentation"
+                    )
+                )
+            else:
+                self._warn_label.configure(
+                    text=(
+                        f"Multi-leaf — click each separated leaf on this photo.\n"
+                        f"This photo: {stem_n} leaf click(s)  ·  Total: {n}  ·  "
+                        f"Next → next photo  ·  then Run segmentation"
+                    )
+                )
+            self._mark_scale_btn.grid_remove()
+            self._warn_btn.configure(
+                text="Clear selections",
+                state="normal",
+                command=self._clear_interactive_selections,
+            )
+        elif not use_scale:
+            self._warn_label.configure(
+                text=(
+                    f"Only leaf — click the leaf.\n"
+                    f"Selected: {n}  ·  Next → next photo  ·  then Run"
+                )
+            )
+            self._mark_scale_btn.grid_remove()
         else:
             path = self._carousel.current_path
             stage = self._interactive_stage(path)
-            if not use_scale:
-                self._warn_label.configure(
-                    text=(
-                        f"Only leaf — click the leaf.\n"
-                        f"Selected: {n}  ·  Next → next photo  ·  then Run"
-                    )
-                )
-                self._mark_scale_btn.grid_remove()
-            elif stage == "leaf":
+            if stage == "leaf":
                 self._warn_label.configure(
                     text=f"Leaf + scale — Step 1/2: click the LEAF.\nSelected: {n}"
                 )
@@ -593,11 +713,15 @@ class SegmentTab(ctk.CTkFrame):
                     state="normal",
                 )
                 self._mark_scale_btn.grid()
-            self._warn_btn.configure(
-                text="Clear selections",
-                state="normal",
-                command=self._clear_interactive_selections,
-            )
+        if ready:
+            if multi:
+                pass  # warn_btn configured in multi branch above
+            else:
+                self._warn_btn.configure(
+                    text="Clear selections",
+                    state="normal",
+                    command=self._clear_interactive_selections,
+                )
         self._warn_banner.grid()
 
     def _clear_interactive_selections(self) -> None:
@@ -701,7 +825,43 @@ class SegmentTab(ctk.CTkFrame):
                 )
             return
 
-        # Leaf + scale step 2: scale click (no auto-detect)
+        # Multi-leaf: each click adds another leaf on this photo
+        if self._is_multi_leaf_mode():
+            from gui.interactive_sam_session import get_session
+
+            session = get_session()
+            if not session.mobilesam_ready:
+                self._ensure_interactive_models_async()
+                messagebox.showinfo(
+                    "Loading model",
+                    "MobileSAM is still loading. Wait a moment and click again.",
+                )
+                return
+            self._interactive_busy = True
+            self._carousel.enable_point_click_mode(False)
+            self._warn_label.configure(text=f"Selecting leaf in {source_file.name}…")
+            known_mm = float(self._state.birefnet_known_diameter_mm)
+            use_scale = self._is_leaf_scale_mode()
+
+            import threading
+
+            def worker_multi() -> None:
+                try:
+                    sel = session.predict_multi_leaf_click(
+                        source_file,
+                        x,
+                        y,
+                        apply_photo_circle=use_scale,
+                        known_diameter_mm=known_mm,
+                    )
+                    self.after(0, lambda s=sel: self._on_interactive_preview_done(s, None))
+                except Exception as e:
+                    self.after(0, lambda err=str(e): self._on_interactive_preview_done(None, err))
+
+            threading.Thread(target=worker_multi, daemon=True).start()
+            return
+
+        # Leaf + scale step 2: scale click (single-leaf only)
         if self._is_leaf_scale_mode():
             stage = self._interactive_stage(source_file)
             if stage == "scale":
@@ -859,13 +1019,22 @@ class SegmentTab(ctk.CTkFrame):
             self._update_interactive_banner()
             return
         if sel is not None:
-            self._carousel.set_preview_mask(sel.mask)
-            if self._is_leaf_scale_mode() and sel.has_circle:
-                self._carousel.set_scale_circle(
-                    sel.circle_cx, sel.circle_cy, sel.circle_diameter
-                )
+            if self._is_multi_leaf_mode():
+                path = self._carousel.current_path
+                layers = self._multi_leaf_preview_layers(path)
+                if layers:
+                    self._carousel.set_preview_masks(layers)
+                else:
+                    self._carousel.clear_preview_mask()
+                self._apply_scale_circle_overlay(path)
             else:
-                self._carousel.clear_scale_circle()
+                self._carousel.set_preview_mask(sel.mask)
+                if self._is_leaf_scale_mode() and sel.has_circle:
+                    self._carousel.set_scale_circle(
+                        sel.circle_cx, sel.circle_cy, sel.circle_diameter
+                    )
+                else:
+                    self._carousel.clear_scale_circle()
         self._update_interactive_banner()
 
     def collect_interactive_finalize_kwargs(self) -> dict:
@@ -1139,18 +1308,7 @@ class SegmentTab(ctk.CTkFrame):
     def _on_method_change(self, _val=None) -> None:
         # Sync method first so UI helpers see the new selection
         self.sync_to_state()
-        if self._state.multi_leaf_photos and not self._is_birefnet_method():
-            from tkinter import messagebox
-
-            messagebox.showwarning(
-                "Multiple leaves per photo",
-                "Multi-leaf mode only works with BiRefNet + MobileSAM (method A).\n\n"
-                "Keeping method A. Turn off 'Multiple leaves per photo' on the "
-                "Project tab to use Otsu or Interactive.",
-            )
-            self._state.segmentation_method = "birefnet_mobilesam"
-            self._apply_method_label("birefnet_mobilesam")
-            self.sync_to_state()
+        self._apply_multi_leaf_method_lock()
         self._update_advanced_panels()
         self._refresh_multi_leaf_badge()
         if self._is_interactive_method():
@@ -1255,11 +1413,14 @@ class SegmentTab(ctk.CTkFrame):
                         str(self._state.birefnet_agreement_threshold))
         self._state.apply_fixed_pipeline_resolution()
 
-        mode = getattr(self._state, "interactive_click_mode", "leaf_scale")
-        if mode not in ("leaf_only", "leaf_scale"):
-            mode = "leaf_scale"
-        self._state.interactive_click_mode = mode
-        self._set_interactive_checkboxes(mode)
+        mode = getattr(self._state, "interactive_click_mode", "")
+        if mode == "leaf_only":
+            self._set_interactive_checkboxes("leaf_only")
+        elif mode == "leaf_scale":
+            self._set_interactive_checkboxes("leaf_scale")
+        else:
+            self._cb_only_leaf.deselect()
+            self._cb_leaf_scale.deselect()
 
         if self._state.segment_advanced_expanded:
             self._show_advanced()
@@ -1560,8 +1721,21 @@ class SegmentTab(ctk.CTkFrame):
 
             session = get_session()
             if session.n_selected == 0:
+                multi = self._is_multi_leaf_mode()
                 mode = self._interactive_click_mode()
-                if mode == "leaf_scale":
+                if multi:
+                    if mode == "leaf_scale":
+                        tip = (
+                            "Multi-leaf + scale — click each separated leaf on every photo.\n"
+                            "The blue reference dot is detected automatically (orange ring).\n"
+                            "Use Next to move between photos, then Run segmentation."
+                        )
+                    else:
+                        tip = (
+                            "Multi-leaf — click each separated leaf on every photo.\n"
+                            "Use Next to move between photos, then Run segmentation."
+                        )
+                elif mode == "leaf_scale":
                     tip = (
                         "Click the leaf, then the scale sticker on each photo "
                         "(light-blue preview + cyan ring).\n"
@@ -1583,35 +1757,58 @@ class SegmentTab(ctk.CTkFrame):
             if not self._interactive_finalize_cb:
                 return
             n = session.n_selected
+            multi = self._is_multi_leaf_mode()
             mode = self._interactive_click_mode()
             if mode == "leaf_scale":
-                missing_scale = sum(
-                    1
-                    for sel in session.selections.values()
-                    if sel.mask is not None
-                    and sel.mask.size > 1
-                    and int(sel.mask.sum()) > 0
-                    and not sel.has_circle
-                )
+                if multi:
+                    missing_scale = sum(
+                        1
+                        for stem in session.multi_leaves
+                        if session.multi_leaves[stem]
+                        and not session.photo_circles.get(stem, {}).get("found")
+                    )
+                else:
+                    missing_scale = sum(
+                        1
+                        for sel in session.selections.values()
+                        if sel.mask is not None
+                        and sel.mask.size > 1
+                        and int(sel.mask.sum()) > 0
+                        and not sel.has_circle
+                    )
                 if missing_scale > 0:
                     if not messagebox.askyesno(
-                        "Missing scale clicks",
-                        f"{missing_scale} photo(s) have a leaf click but no scale click.\n\n"
+                        "Missing scale detection",
+                        f"{missing_scale} photo(s) have leaf click(s) but no blue scale detected.\n\n"
                         "Continue anyway? (those photos will have no mm² calibration)",
                     ):
                         self._apply_interactive_ui()
                         return
-                confirm_msg = (
-                    f"Run BiRefNet on {n} selected photo(s)?\n\n"
-                    "Mode: Leaf + scale.\n"
-                    "Models stay loaded in memory (loaded once)."
-                )
+                if multi:
+                    confirm_msg = (
+                        f"Run BiRefNet on {n} leaf selection(s)?\n\n"
+                        "Mode: Multi-leaf + scale (interactive).\n"
+                        "Models stay loaded in memory (loaded once)."
+                    )
+                else:
+                    confirm_msg = (
+                        f"Run BiRefNet on {n} selected photo(s)?\n\n"
+                        "Mode: Leaf + scale.\n"
+                        "Models stay loaded in memory (loaded once)."
+                    )
             else:
-                confirm_msg = (
-                    f"Run BiRefNet on {n} selected photo(s)?\n\n"
-                    "Mode: Only leaf (no scale reference).\n"
-                    "Models stay loaded in memory (loaded once)."
-                )
+                if multi:
+                    confirm_msg = (
+                        f"Run BiRefNet on {n} leaf selection(s)?\n\n"
+                        "Mode: Multi-leaf, only leaf (no scale reference).\n"
+                        "Models stay loaded in memory (loaded once)."
+                    )
+                else:
+                    confirm_msg = (
+                        f"Run BiRefNet on {n} selected photo(s)?\n\n"
+                        "Mode: Only leaf (no scale reference).\n"
+                        "Models stay loaded in memory (loaded once)."
+                    )
             if not messagebox.askyesno("Finalize interactive selections", confirm_msg):
                 return
             self._interactive_finalize_cb()

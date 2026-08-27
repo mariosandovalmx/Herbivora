@@ -1,7 +1,7 @@
 @echo off
-REM HerbivoR one-click installer (Windows).
-REM   Install_HerbivoR.bat        → GUI installer (repair / manual)
-REM   Install_HerbivoR.bat /auto  → fully automatic (used by Setup.exe)
+REM Herbivora one-click installer (Windows).
+REM   Install_Herbivora.bat        → GUI installer (repair / manual)
+REM   Install_Herbivora.bat /auto  → fully automatic (used by Setup.exe)
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
@@ -17,16 +17,16 @@ if /i "%~1"=="/silent" set "AUTO=1"
 set "BOOTSTRAP=%~dp0packaging\bootstrap_install.py"
 if not exist "%BOOTSTRAP%" (
     echo ERROR: packaging\bootstrap_install.py not found.
-    echo Extract the full HerbivoR release ZIP and try again.
+    echo Extract the full Herbivora release ZIP and try again.
     if not "%AUTO%"=="1" pause
     exit /b 1
 )
 
 set "PY="
 set "PYARGS="
-set "PRIVATE=%LOCALAPPDATA%\HerbivoR\Python\python.exe"
+set "PRIVATE=%LOCALAPPDATA%\Herbivora\Python\python.exe"
 
-echo Ensuring private HerbivoR Python (with Tcl/Tk)...
+echo Ensuring private Herbivora Python (with Tcl/Tk)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\ensure_windows_python.ps1"
 if errorlevel 1 (
     echo WARNING: Private Python helper reported an error.
@@ -79,7 +79,7 @@ exit /b 1
 
 :run
 echo Using Python: !PY! !PYARGS!
-echo Starting HerbivoR dependency install...
+echo Starting Herbivora dependency install...
 if "%AUTO%"=="1" (
     "!PY!" !PYARGS! "%BOOTSTRAP%" --yes --flavor auto
 ) else (

@@ -187,6 +187,10 @@ def _circle_from_mask(
 @dataclass
 class InteractiveSamSession:
     selections: dict[str, InteractiveSelection] = field(default_factory=dict)
+    # Multi-leaf interactive: several SAM clicks per photo stem.
+    multi_leaves: dict[str, list[InteractiveSelection]] = field(default_factory=dict)
+    # Shared scale circle per photo (multi-leaf + Leaf + scale).
+    photo_circles: dict[str, dict] = field(default_factory=dict)
     # Circles marked before a leaf click (stem -> circle_info)
     pending_circles: dict[str, dict] = field(default_factory=dict)
     _device: object | None = None
@@ -219,6 +223,13 @@ class InteractiveSamSession:
 
     @property
     def n_selected(self) -> int:
+        if self.multi_leaves:
+            return sum(
+                1
+                for leaves in self.multi_leaves.values()
+                for sel in leaves
+                if sel.mask is not None and sel.mask.size > 1 and int(sel.mask.sum()) > 0
+            )
         return sum(
             1
             for sel in self.selections.values()
@@ -227,7 +238,35 @@ class InteractiveSamSession:
 
     def clear_selections(self) -> None:
         self.selections.clear()
+        self.multi_leaves.clear()
+        self.photo_circles.clear()
         self.pending_circles.clear()
+
+    def leaves_for_stem(self, stem: str) -> list[InteractiveSelection]:
+        return list(self.multi_leaves.get(stem, []))
+
+    def ensure_photo_circle(
+        self,
+        image_path: Path,
+        *,
+        known_diameter_mm: float = 6.0,
+        log: Callable[[str], None] | None = None,
+    ) -> dict | None:
+        """Auto-detect blue scale circle once per photo (multi-leaf + scale mode)."""
+        stem = image_path.stem
+        existing = self.photo_circles.get(stem)
+        if existing and existing.get("found"):
+            return existing
+        circle = self.detect_circle_for_image(image_path, known_diameter_mm)
+        if circle.get("found"):
+            self.photo_circles[stem] = circle
+            if log:
+                conf = "low-conf" if circle.get("low_confidence") else "ok"
+                log(
+                    f"  Scale auto: d={circle['diameter_px']:.1f}px "
+                    f"method={circle.get('method')} ({conf})"
+                )
+        return circle if circle.get("found") else None
 
     def release_models(self) -> None:
         """Drop model handles (e.g. when leaving Interactive method)."""
@@ -338,6 +377,8 @@ class InteractiveSamSession:
         if path is None:
             return None
         stem = path.stem
+        if stem in self.photo_circles and self.photo_circles[stem].get("found"):
+            return self.photo_circles[stem]
         sel = self.selections.get(stem)
         if sel is not None and sel.has_circle:
             return sel.circle_prior_dict()
@@ -345,6 +386,52 @@ class InteractiveSamSession:
         if pending and pending.get("found"):
             return pending
         return None
+
+    def predict_multi_leaf_click(
+        self,
+        image_path: Path,
+        x: float,
+        y: float,
+        *,
+        apply_photo_circle: bool = False,
+        known_diameter_mm: float = 6.0,
+        log: Callable[[str], None] | None = None,
+    ) -> InteractiveSelection:
+        """Append a MobileSAM leaf click (multi-leaf interactive mode)."""
+        self.ensure_mobilesam(log=log)
+        self._ensure_path()
+        from image_io import load_bgr
+        from utils.segmentation_utils import run_mobilesam_point
+
+        image = load_bgr(image_path)
+        if image is None:
+            raise RuntimeError(f"Cannot read image: {image_path}")
+        H, W = image.shape[:2]
+        px = int(max(0, min(W - 1, round(x))))
+        py = int(max(0, min(H - 1, round(y))))
+        mask = run_mobilesam_point(image, self._mobilesam, point=(px, py))
+
+        stem = image_path.stem
+        sel = InteractiveSelection(
+            path=image_path.resolve(),
+            x=px,
+            y=py,
+            mask=mask.astype(bool),
+        )
+        self.multi_leaves.setdefault(stem, []).append(sel)
+        if apply_photo_circle:
+            circle = self.ensure_photo_circle(
+                image_path, known_diameter_mm=known_diameter_mm, log=log
+            )
+            if circle:
+                _apply_circle_to_selection(sel, circle, subtract_from_mask=True)
+        if log:
+            n = len(self.multi_leaves[stem])
+            log(
+                f"MobileSAM multi-leaf: {image_path.name} leaf #{n} @ ({px},{py})  "
+                f"area={int(sel.mask.sum())} px"
+            )
+        return sel
 
     def set_circle_on_stem(
         self,
@@ -656,6 +743,7 @@ class InteractiveSamSession:
                     save_debug=True,
                     point_prior=(sel.x, sel.y),
                     circle_prior=circle_prior,
+                    mask_prior=sel.mask,
                 )
                 if result:
                     ok += 1
@@ -667,6 +755,119 @@ class InteractiveSamSession:
                     log(f"  ERROR: {e}")
         if log:
             log(f"Interactive batch done: {ok} succeeded, {failed} failed.")
+        return ok, failed
+
+    def finalize_multi_batch(
+        self,
+        output_dir: Path,
+        *,
+        known_diameter_mm: float = 6.0,
+        hybrid_mode: str = "birefnet_primary",
+        seg_resolution: int = 1024,
+        output_size: int = 1024,
+        agreement_threshold: float = 0.85,
+        remove_blue: bool = True,
+        project_root: Path | None = None,
+        log: Callable[[str], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
+    ) -> tuple[int, int]:
+        """Finalize multi-leaf interactive clicks → {photo}_leaf_{n} outputs."""
+        if not self.multi_leaves:
+            raise RuntimeError("No multi-leaf interactive selections to finalize.")
+
+        self.ensure_mobilesam(log=log)
+        self.ensure_birefnet(log=log)
+        self._ensure_path()
+
+        from run_pipeline import _load_cfg, process_image
+
+        try:
+            from segmentation.birefnet_mobilesam_multi.export_leaf import leaf_output_stem
+        except ImportError:
+            from export_leaf import leaf_output_stem  # type: ignore[import-not-found]
+
+        cfg = _load_cfg(
+            _BIREFNET_DIR / "config.yaml",
+            {
+                "known_diameter_mm": known_diameter_mm,
+                "hybrid_mode": hybrid_mode,
+                "seg_resolution": seg_resolution,
+                "output_size": output_size,
+                "agreement_threshold": agreement_threshold,
+            },
+        )
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        if remove_blue and project_root is not None:
+            try:
+                from gui.pipeline import save_circle_override
+
+                for stem, circle in self.photo_circles.items():
+                    if circle.get("found"):
+                        cx, cy = circle["center_px"]
+                        save_circle_override(
+                            project_root,
+                            stem,
+                            float(cx),
+                            float(cy),
+                            float(circle["diameter_px"]),
+                        )
+            except Exception as e:
+                if log:
+                    log(f"WARNING: could not save circle overrides: {e}")
+
+        ok = failed = 0
+        total = sum(len(v) for v in self.multi_leaves.values())
+        idx = 0
+        for stem, leaves in self.multi_leaves.items():
+            if should_cancel and should_cancel():
+                if log:
+                    log("Interactive multi-leaf batch cancelled.")
+                break
+            circle_prior = (
+                self.photo_circles.get(stem)
+                if remove_blue and self.photo_circles.get(stem, {}).get("found")
+                else None
+            )
+            for leaf_i, sel in enumerate(leaves, start=1):
+                idx += 1
+                if sel.mask.size <= 1 or int(sel.mask.sum()) == 0:
+                    if log:
+                        log(f"[{idx}/{total}] SKIP {stem} leaf_{leaf_i}: empty mask")
+                    failed += 1
+                    continue
+                out_stem = leaf_output_stem(stem, leaf_i)
+                if log:
+                    log(
+                        f"[{idx}/{total}] BiRefNet refine: {sel.path.name} "
+                        f"→ {out_stem}  click=({sel.x},{sel.y})"
+                    )
+                try:
+                    meta = process_image(
+                        sel.path,
+                        output_dir,
+                        cfg,
+                        self._birefnet,
+                        self._mobilesam,
+                        remove_blue=remove_blue,
+                        save_debug=True,
+                        point_prior=(sel.x, sel.y),
+                        circle_prior=circle_prior,
+                        mask_prior=sel.mask,
+                        output_stem=out_stem,
+                    )
+                    if meta:
+                        ok += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    failed += 1
+                    if log:
+                        log(f"  ERROR: {e}")
+
+        if log:
+            log(f"Interactive multi-leaf batch done: {ok} succeeded, {failed} failed.")
         return ok, failed
 
 

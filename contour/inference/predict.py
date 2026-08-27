@@ -83,12 +83,21 @@ def reconstruct_mask(
     white_thresh: int = 240,
     amp: bool = True,
     refine: bool = True,
-    bridge_max_growth: float = 0.08,
+    bridge_max_growth: float | None = None,
+    morphology: str | None = None,
+    seg_mask: np.ndarray | None = None,
 ) -> dict | None:
-    """Complete a damaged leaf silhouette from a white-background RGB crop."""
+    """Complete a damaged leaf silhouette from a white-background RGB crop.
+
+    Parameters
+    ----------
+    morphology
+        User-selected leaf type (``smooth`` / ``serrated`` / ``lobed`` /
+        ``compound``), or ``None`` / ``\"auto\"`` to classify from the mask.
+    """
     from contour.inference.gap_detector import classify_morphology
     from contour.inference.mask_refine import (
-        REFINE_MORPHOLOGIES,
+        get_morphology_profile,
         refine_unet_mask,
     )
 
@@ -96,8 +105,25 @@ def reconstruct_mask(
     if partial.max() == 0:
         return None
 
-    morphology = classify_morphology(partial)
-    if morphology in REFINE_MORPHOLOGIES:
+    if seg_mask is not None and seg_mask.shape[:2] == partial.shape[:2]:
+        from contour.inference.mask_refine import _clip_to_segmentation_roi
+
+        partial_bool = partial > 0
+        clipped = _clip_to_segmentation_roi(partial_bool, seg_mask, dilate_px=3)
+        partial = (clipped.astype(np.uint8)) * 255
+        if partial.max() == 0:
+            return None
+
+    user_morph = (morphology or "auto").strip().lower()
+    if user_morph in ("", "auto", "none"):
+        resolved = classify_morphology(partial)
+        morph_source = "auto"
+    else:
+        resolved = user_morph
+        morph_source = "user"
+
+    profile = get_morphology_profile(resolved)
+    if profile.get("gentle_partial"):
         partial = extract_partial_mask(bgr, threshold=white_thresh, gentle=True)
 
     h0, w0 = partial.shape[:2]
@@ -122,13 +148,19 @@ def reconstruct_mask(
     full = cv2.bitwise_or(pred, partial)
 
     if refine:
-        full, morphology = refine_unet_mask(
+        growth = (
+            float(bridge_max_growth)
+            if bridge_max_growth is not None
+            else float(profile["bridge_max_growth"])
+        )
+        full, resolved = refine_unet_mask(
             full,
             partial,
             bgr,
-            morphology=morphology,
-            bridge_max_growth=bridge_max_growth,
+            morphology=resolved,
+            bridge_max_growth=growth,
             white_thresh=white_thresh,
+            seg_mask=seg_mask,
         )
 
     new_pixels = (full > 0) & (partial == 0)
@@ -142,5 +174,6 @@ def reconstruct_mask(
         "partial_mask": partial,
         "prob_map": prob,
         "confidence": float(np.clip(confidence, 0.0, 1.0)),
-        "morphology": morphology,
+        "morphology": resolved,
+        "morphology_source": morph_source,
     }

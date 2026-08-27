@@ -11,6 +11,8 @@ import customtkinter as ctk
 
 from gui.paths import (
     MODELS_DIR,
+    MORPHOLOGY_MODEL_FILES,
+    MORPHOLOGY_MODEL_STATE_ATTR,
     REPO_ROOT,
     analyzed_dir,
     auto_detect_models,
@@ -214,18 +216,13 @@ class ProjectTab(ctk.CTkFrame):
             message=(
                 "Enable when each input photo contains several separated leaves "
                 "(not touching / overlapping).\n\n"
-                "When enabled, Segmentation method A (BiRefNet + MobileSAM) runs a "
-                "multi-leaf pipeline:\n"
-                "• BiRefNet detects leaf tissue\n"
-                "• Connected components separate each leaf\n"
-                "• MobileSAM refines each leaf with a box prompt\n"
+                "When enabled, Segmentation uses Interactive (method C) only:\n"
+                "• Click each separated leaf on the photo (multiple clicks per image)\n"
+                "• With Leaf + scale: the blue reference dot is auto-detected per photo\n"
                 "• Outputs are named {photo}_leaf_1, {photo}_leaf_2, …\n"
-                "• Contour / Analysis and results.csv use one row per leaf "
-                "(no Contour or Damage model re-training).\n\n"
-                "Limitation: touching or overlapping leaves may be merged into one "
-                "component. Mutually exclusive with Skip segmentation.\n"
-                "Methods B (Otsu) and C (Interactive) stay single-leaf; enabling this "
-                "option switches Segmentation to method A."
+                "• Contour / Analysis use one row per leaf\n\n"
+                "Use Next to move between photos and keep selecting leaves. "
+                "Mutually exclusive with Skip segmentation."
             ),
         ).pack(side="left", padx=8)
 
@@ -311,23 +308,54 @@ class ProjectTab(ctk.CTkFrame):
             content, text="Contour models", font=ctk.CTkFont(weight="bold", size=12)
         ).grid(row=3, column=0, sticky="w", pady=(10, 2))
 
+        ctk.CTkLabel(
+            content,
+            text=(
+                "Default weights are used when Contour leaf type is Auto. "
+                "Specialists are applied automatically when you pick Entire / "
+                "Serrated / Lobed / Compound on the Contour tab."
+            ),
+            text_color=("gray45", "gray60"),
+            wraplength=400,
+            justify="left",
+            font=ctk.CTkFont(size=11),
+        ).grid(row=4, column=0, sticky="w", pady=(0, 4))
+
         self._leaf_picker = PathPickerRow(
-            content, "Contour U-Net (.pth)", is_dir=False,
+            content, "Contour U-Net — default / Auto (.pth)", is_dir=False,
             filetypes=[("PyTorch", "*.pth"), ("All files", "*.*")]
         )
-        self._leaf_picker.grid(row=4, column=0, sticky="ew", pady=3)
+        self._leaf_picker.grid(row=5, column=0, sticky="ew", pady=3)
         self._leaf_picker.set_change_callback(self._schedule_apply_manual_paths)
+
+        self._morph_pickers: dict[str, PathPickerRow] = {}
+        morph_picker_labels = {
+            "smooth": "Contour U-Net — Entire / smooth",
+            "serrated": "Contour U-Net — Serrated",
+            "lobed": "Contour U-Net — Lobed",
+            "compound": "Contour U-Net — Compound",
+        }
+        for i, morph in enumerate(("smooth", "serrated", "lobed", "compound"), start=6):
+            picker = PathPickerRow(
+                content,
+                f"{morph_picker_labels[morph]} (.pth)",
+                is_dir=False,
+                filetypes=[("PyTorch", "*.pth"), ("All files", "*.*")],
+            )
+            picker.grid(row=i, column=0, sticky="ew", pady=3)
+            picker.set_change_callback(self._schedule_apply_manual_paths)
+            self._morph_pickers[morph] = picker
 
         # -- Analysis models sub-header
         ctk.CTkLabel(
             content, text="Analysis models", font=ctk.CTkFont(weight="bold", size=12)
-        ).grid(row=5, column=0, sticky="w", pady=(10, 2))
+        ).grid(row=10, column=0, sticky="w", pady=(10, 2))
 
         self._damage_picker = PathPickerRow(
             content, "Damage U-Net (.pth)", is_dir=False,
             filetypes=[("PyTorch", "*.pth"), ("All files", "*.*")]
         )
-        self._damage_picker.grid(row=6, column=0, sticky="ew", pady=3)
+        self._damage_picker.grid(row=11, column=0, sticky="ew", pady=3)
         self._damage_picker.set_change_callback(self._schedule_apply_manual_paths)
 
         ctk.CTkLabel(
@@ -337,11 +365,11 @@ class ProjectTab(ctk.CTkFrame):
             font=ctk.CTkFont(size=11),
             wraplength=420,
             justify="left",
-        ).grid(row=7, column=0, sticky="w", pady=(8, 4))
+        ).grid(row=12, column=0, sticky="w", pady=(8, 4))
 
         # ── Action buttons ────────────────────────────────────────────────
         btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        btn_row.grid(row=10, column=0, sticky="ew", pady=12)
+        btn_row.grid(row=13, column=0, sticky="ew", pady=12)
         self._check_install_btn = ctk.CTkButton(
             btn_row, text="Check installation", command=self._check_install
         )
@@ -350,7 +378,7 @@ class ProjectTab(ctk.CTkFrame):
 
         # ── Status ────────────────────────────────────────────────────────
         self._status_label = ctk.CTkLabel(scroll, text="", justify="left", anchor="w")
-        self._status_label.grid(row=11, column=0, sticky="ew", pady=8)
+        self._status_label.grid(row=14, column=0, sticky="ew", pady=8)
 
         self._skip_segmentation_cb = None
         self._input_refresh_job: str | None = None
@@ -385,32 +413,56 @@ class ProjectTab(ctk.CTkFrame):
             self._state.leaf_model = path
             self._state.recon_model_unet_shape = path
 
+        for morph, attr in MORPHOLOGY_MODEL_STATE_ATTR.items():
+            _s(f"unet_shape_{morph}", attr)
+
         # Sync into the manual pickers (for display)
         self._suppress_model_apply = True
         try:
             self._mobilesam_picker.set(self._state.mobilesam_model)
             self._damage_picker.set(self._state.damage_model)
             self._leaf_picker.set(self._state.recon_model_unet_shape or self._state.leaf_model)
+            for morph, picker in self._morph_pickers.items():
+                attr = MORPHOLOGY_MODEL_STATE_ATTR[morph]
+                picker.set(
+                    getattr(self._state, attr, "") or str(MORPHOLOGY_MODEL_FILES[morph])
+                )
         finally:
             self._suppress_model_apply = False
 
     def _update_models_badge(self, detected: dict | None = None) -> None:
-        """Update the status badge for the 3 models used by the GUI."""
+        """Update the status badge for core + Contour specialist models."""
         if detected is None:
             detected = auto_detect_models()
-        found = sum(1 for p in detected.values() if p is not None and Path(str(p)).is_file())
-        total = len(detected)
+
+        core_keys = ("mobilesam", "unet_shape", "damage")
+        morph_keys = tuple(f"unet_shape_{m}" for m in MORPHOLOGY_MODEL_FILES)
+
+        def _present(key: str) -> bool:
+            p = detected.get(key)
+            return p is not None and Path(str(p)).is_file()
+
+        specialists = sum(1 for k in morph_keys if _present(k))
+        core_ok = all(_present(k) for k in core_keys)
+        found = sum(1 for k in (*core_keys, *morph_keys) if _present(k))
+        total = len(core_keys) + len(morph_keys)
 
         if found == total:
             self._models_icon.configure(text="✅")
             self._models_status_label.configure(
-                text=f"All {total} models detected automatically"
+                text=f"All {total} models detected (3 core + {specialists} Contour specialists)"
+            )
+        elif core_ok:
+            self._models_icon.configure(text="✅")
+            self._models_status_label.configure(
+                text=f"Core models OK — {specialists}/4 Contour specialists found"
             )
         elif found > 0:
             self._models_icon.configure(text="⚠️")
             self._models_status_label.configure(
                 text=f"{found}/{total} models found — check Advanced Options below"
             )
+            self._adv_section.expand()
         else:
             self._models_icon.configure(text="❌")
             self._models_status_label.configure(
@@ -444,6 +496,10 @@ class ProjectTab(ctk.CTkFrame):
         leaf = self._leaf_picker.get()
         if leaf:
             self._set_contour_unet_path(leaf)
+        for morph, picker in self._morph_pickers.items():
+            path = picker.get().strip().strip("\"'")
+            if path:
+                setattr(self._state, MORPHOLOGY_MODEL_STATE_ATTR[morph], path)
         self._on_change()
         self._update_models_badge()
 
@@ -613,15 +669,16 @@ class ProjectTab(ctk.CTkFrame):
 
         self._state.multi_leaf_photos = checked
         if checked:
-            # Multi-leaf uses Method A only
-            self._state.segmentation_method = "birefnet_mobilesam"
+            self._state.segmentation_method = "interactive_mobilesam"
             messagebox.showinfo(
                 "Multiple leaves per photo",
                 "Multi-leaf mode is on.\n\n"
-                "Segmentation will use BiRefNet + MobileSAM (method A) and export "
-                "one file per leaf ({photo}_leaf_1, {photo}_leaf_2, …).\n\n"
-                "Leaves should be separated (not touching). Contour / Damage models "
-                "are unchanged — each leaf is analyzed like a normal single-leaf image.",
+                "Segmentation uses Interactive (method C) only — click each separated "
+                "leaf on the photo. Export one file per leaf ({photo}_leaf_1, "
+                "{photo}_leaf_2, …).\n\n"
+                "With Leaf + scale: the blue reference dot is detected automatically "
+                "per photo (orange ring). With Only leaf: click leaves only, then "
+                "navigate between photos.",
             )
         self._on_change()
 
@@ -743,6 +800,10 @@ class ProjectTab(ctk.CTkFrame):
             self._state.mobilesam_model = mobilesam
         self._state.damage_model = self._damage_picker.get()
         self._set_contour_unet_path(self._leaf_picker.get())
+        for morph, picker in self._morph_pickers.items():
+            path = picker.get().strip().strip("\"'")
+            if path:
+                setattr(self._state, MORPHOLOGY_MODEL_STATE_ATTR[morph], path)
         self._on_change()
 
     def refresh_status(self) -> None:
@@ -808,7 +869,7 @@ class ProjectTab(ctk.CTkFrame):
             missing_str = "\n".join(f" - {m}" for m in missing)
             ans = messagebox.askyesno(
                 "Missing Dependencies",
-                f"HerbivoR detected missing dependencies:\n\n{missing_str}\n\n"
+                f"Herbivora detected missing dependencies:\n\n{missing_str}\n\n"
                 "Would you like the app to attempt to automatically install them now?\n"
                 "(This will run pip in the background. It may take a few minutes.)"
             )
@@ -829,8 +890,8 @@ class ProjectTab(ctk.CTkFrame):
                         messagebox.showinfo(
                             "Install PyTorch first",
                             "PyTorch is missing. Close this dialog and run:\n\n"
-                            "  Windows: Install_HerbivoR.bat\n"
-                            "  macOS/Linux: Install_HerbivoR.command\n\n"
+                            "  Windows: Install_Herbivora.bat\n"
+                            "  macOS/Linux: Install_Herbivora.command\n\n"
                             "See USER_GUIDE.md. Those installers pick the correct Torch wheel "
                             "and then install the other packages.",
                         )
@@ -848,24 +909,24 @@ class ProjectTab(ctk.CTkFrame):
                             "Installation Failed",
                             "Automatic installation failed. Error output:\n\n"
                             f"{err_log[:800]}\n\n"
-                            "Please run Install_HerbivoR.bat (Windows) or "
-                            "Install_HerbivoR.command (macOS/Linux). See USER_GUIDE.md."
+                            "Please run Install_Herbivora.bat (Windows) or "
+                            "Install_Herbivora.command (macOS/Linux). See USER_GUIDE.md."
                         )
                 except Exception as e:
                     messagebox.showerror(
                         "Installation Error",
                         f"An error occurred during installation:\n{e}\n\n"
-                        "Please run Install_HerbivoR.bat (Windows) or "
-                        "Install_HerbivoR.command (macOS/Linux)."
+                        "Please run Install_Herbivora.bat (Windows) or "
+                        "Install_Herbivora.command (macOS/Linux)."
                     )
                 self.load_from_state()
                 return
             messagebox.showinfo(
                 "Manual Installation Instructions",
-                "To run HerbivoR correctly, you must install the missing libraries.\n"
+                "To run Herbivora correctly, you must install the missing libraries.\n"
                 "You can do this by executing one of the following options:\n\n"
                     "Option A (Recommended):\n"
-                    "Run Install_HerbivoR.bat (Windows) or Install_HerbivoR.command "
+                    "Run Install_Herbivora.bat (Windows) or Install_Herbivora.command "
                     "(macOS/Linux). See USER_GUIDE.md.\n\n"
                     "Option B (Command Line):\n"
                     "See INSTALL.md — install torch/torchvision from pytorch.org first, then:\n"

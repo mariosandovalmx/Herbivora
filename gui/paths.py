@@ -1,4 +1,4 @@
-"""Route conventions for the HerbivoR project."""
+"""Route conventions for the Herbivora project."""
 
 from __future__ import annotations
 
@@ -42,6 +42,63 @@ DEFAULT_DAMAGE_MODEL = MODELS_DIR / "best_model.pth"
 # Alias used by Contour leaf-weights args
 DEFAULT_LEAF_MODEL = DEFAULT_UNET_SHAPE_MODEL
 
+# Optional morphology-specialist Contour checkpoints (fine-tuned). Fallback = DEFAULT.
+MORPHOLOGY_MODEL_FILES: dict[str, Path] = {
+    "smooth": MODELS_DIR / "best_unet_shape_smooth.pth",
+    "serrated": MODELS_DIR / "best_unet_shape_serrated.pth",
+    "lobed": MODELS_DIR / "best_unet_shape_lobed.pth",
+    "compound": MODELS_DIR / "best_unet_shape_compound.pth",
+}
+
+# ProjectState attribute names for per-morphology Contour weights.
+MORPHOLOGY_MODEL_STATE_ATTR: dict[str, str] = {
+    "smooth": "recon_model_shape_smooth",
+    "serrated": "recon_model_shape_serrated",
+    "lobed": "recon_model_shape_lobed",
+    "compound": "recon_model_shape_compound",
+}
+
+
+def resolve_unet_shape_checkpoint(
+    morphology: str | None = None,
+    fallback: Path | None = None,
+) -> Path:
+    """Return specialist Contour weights for a morphology if present, else fallback."""
+    base = fallback if fallback is not None else DEFAULT_UNET_SHAPE_MODEL
+    key = (morphology or "auto").strip().lower()
+    if key in ("", "auto", "none"):
+        return base
+    specialist = MORPHOLOGY_MODEL_FILES.get(key)
+    if specialist is not None and specialist.is_file():
+        return specialist
+    return base
+
+
+def resolve_unet_shape_for_state(state) -> Path:
+    """Active Contour checkpoint for the state's selected leaf morphology.
+
+    Uses the Project-tab specialist path when set and present on disk; otherwise
+    falls back to ``models/best_unet_shape_<morph>.pth``, then to the default
+    Contour U-Net (Auto).
+    """
+    morph = (getattr(state, "contour_morphology", "auto") or "auto").strip().lower()
+    default = getattr(state, "recon_model_unet_shape", "") or getattr(state, "leaf_model", "")
+    default_p = Path(str(default).strip().strip("\"'")) if default else DEFAULT_UNET_SHAPE_MODEL
+    if not default_p.is_file():
+        default_p = DEFAULT_UNET_SHAPE_MODEL
+
+    if morph in ("", "auto", "none"):
+        return default_p
+
+    attr = MORPHOLOGY_MODEL_STATE_ATTR.get(morph)
+    if attr:
+        custom = str(getattr(state, attr, "") or "").strip().strip("\"'")
+        if custom:
+            custom_p = Path(custom)
+            if custom_p.is_file():
+                return custom_p
+
+    return resolve_unet_shape_checkpoint(morph, fallback=default_p)
 SEGMENT_METHOD_CHOICES = ("birefnet_mobilesam", "intact", "interactive_mobilesam")
 SEGMENT_METHOD_LABELS = {
     "birefnet_mobilesam": "A. BiRefNet + MobileSAM [RECOMMENDED]",
@@ -84,27 +141,56 @@ CONTOUR_METHOD_LABELS = {
     "recon_unet_shape": "A. UNET Shape (512px Mask-to-Mask, F2LSM)",
 }
 
+# Contour tab: user-selected leaf margin / morphology for reconstruction.
+MORPHOLOGY_CHOICES = ("auto", "smooth", "serrated", "lobed", "compound")
+MORPHOLOGY_LABELS = {
+    "auto": "Auto",
+    "smooth": "Entire",
+    "serrated": "Serrated",
+    "lobed": "Lobed",
+    "compound": "Compound",
+}
+MORPHOLOGY_DESCRIPTIONS = {
+    "auto": "Detect leaf type automatically from the silhouette.",
+    "smooth": "Entire / smooth margin. Missing bites can be closed toward a smooth outline.",
+    "serrated": "Toothed or serrated margin. Keep teeth; only fill larger isolated bites.",
+    "lobed": "Lobed or pinnatifid. Do not fill natural sinuses between lobes.",
+    "compound": "Compound leaf (separate leaflets). Do not bridge gaps between leaflets.",
+}
+_SHAPES_DIR = bundle_root() / "gui" / "assets" / "shapes"
+SHAPE_ICON_FILES = {
+    "smooth": _SHAPES_DIR / "smooth.png",
+    "serrated": _SHAPES_DIR / "serrated.png",
+    "lobed": _SHAPES_DIR / "lobed.png",
+    "compound": _SHAPES_DIR / "compound.png",
+}
+
 VALID_ROI_MODES = ("filled", "mask", "closed", "hull")
 LEAF_REFINE_CHOICES = ("complete", "bridged", "raw")
 
 
 def auto_detect_models() -> dict[str, Path | None]:
-    """Scan models/ for the three weights used by the HerbivoR GUI.
+    """Scan models/ for the weights used by the Herbivora GUI.
 
     Roles
     -----
     mobilesam   — Segmentation (BiRefNet + MobileSAM / Interactive)
-    unet_shape  — Contour / ROI (UNET Shape)
+    unet_shape  — Contour / ROI default (UNET Shape, used for Auto)
+    unet_shape_* — Optional Contour specialists per leaf morphology
     damage      — Analysis (Damage U-Net)
     """
     mobilesam = DEFAULT_MOBILESAM if DEFAULT_MOBILESAM.is_file() else None
     unet_shape = DEFAULT_UNET_SHAPE_MODEL if DEFAULT_UNET_SHAPE_MODEL.is_file() else None
     damage = DEFAULT_DAMAGE_MODEL if DEFAULT_DAMAGE_MODEL.is_file() else None
-    return {
+    out: dict[str, Path | None] = {
         "mobilesam": mobilesam or DEFAULT_MOBILESAM,
         "unet_shape": unet_shape or DEFAULT_UNET_SHAPE_MODEL,
         "damage": damage or DEFAULT_DAMAGE_MODEL,
     }
+    for morph, path in MORPHOLOGY_MODEL_FILES.items():
+        key = f"unet_shape_{morph}"
+        out[key] = path if path.is_file() else path
+    return out
 
 
 def list_images(folder: Path) -> list[Path]:

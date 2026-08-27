@@ -46,9 +46,18 @@ def overlay_leaf(
         ).astype(np.uint8)
     if np.any(leaf_bool):
         a = float(np.clip(green_alpha, 0.05, 0.95))
-        vis[leaf_bool] = (
-            (1.0 - a) * vis[leaf_bool].astype(np.float64) + a * GREEN_BGR
-        ).astype(np.uint8)
+        # Reconstructed fills on white paper need stronger alpha to be readable.
+        fills = leaf_bool if raw_bool is None else (leaf_bool & ~raw_bool)
+        tissue = leaf_bool if raw_bool is None else (leaf_bool & raw_bool)
+        if np.any(tissue):
+            vis[tissue] = (
+                (1.0 - a) * vis[tissue].astype(np.float64) + a * GREEN_BGR
+            ).astype(np.uint8)
+        if np.any(fills):
+            fa = float(np.clip(max(a, 0.55), 0.05, 0.95))
+            vis[fills] = (
+                (1.0 - fa) * vis[fills].astype(np.float64) + fa * GREEN_BGR
+            ).astype(np.uint8)
         cnts, _ = cv2.findContours(
             (leaf_bool.astype(np.uint8) * 255), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )

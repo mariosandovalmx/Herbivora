@@ -55,8 +55,21 @@ class AnalyzeTab(ctk.CTkFrame):
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=4)
 
+        adv_header = ctk.CTkFrame(scroll, fg_color="transparent")
+        adv_header.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self._adv_toggle = ctk.CTkButton(
+            adv_header,
+            text="Advanced options  ▼",
+            width=160,
+            height=28,
+            fg_color="transparent",
+            border_width=1,
+            anchor="w",
+            command=self._toggle_advanced,
+        )
+        self._adv_toggle.pack(side="left")
+
         adv = ctk.CTkFrame(scroll, fg_color=("gray92", "gray18"))
-        adv.grid(row=2, column=0, sticky="ew", pady=(8, 4))
         adv.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(adv, text="White-hole detection", font=ctk.CTkFont(weight="bold")).grid(
             row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(8, 4)
@@ -114,16 +127,24 @@ class AnalyzeTab(ctk.CTkFrame):
 
         self._white_hole_hint = ctk.CTkLabel(
             adv,
-            text="Defaults: Auto on · Min area 3 · Edge band 1",
+            text="Recommended: Auto on · Min area 3 · Edge band 1",
             text_color="gray",
             font=ctk.CTkFont(size=11),
         )
-        # Match default state: Auto on → Manual Brightness hidden.
-        self._white_hole_adaptive.select()
+        # Default: Auto off until the user enables it in Advanced options.
+        self._white_hole_adaptive.deselect()
         self._on_white_hole_auto_toggle()
 
+        self._adv_frame = adv
+        self._adv_visible = False
+        self._adv_frame.grid(row=3, column=0, sticky="ew", pady=(4, 4))
+        if self._state.analyze_advanced_expanded:
+            self._show_advanced()
+        else:
+            self._hide_advanced()
+
         row_out = ctk.CTkFrame(scroll, fg_color="transparent")
-        row_out.grid(row=3, column=0, sticky="ew", pady=(12, 4))
+        row_out.grid(row=4, column=0, sticky="ew", pady=(12, 4))
         ctk.CTkLabel(row_out, text="Measurement output:").pack(side="left")
         self._output_mode_var = ctk.StringVar(value="Damage % only")
         self._radio_pct = ctk.CTkRadioButton(
@@ -154,7 +175,7 @@ class AnalyzeTab(ctk.CTkFrame):
         ).pack(side="left", padx=6)
 
         self._scale_area_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        self._scale_area_row.grid(row=4, column=0, sticky="ew", pady=(0, 4))
+        self._scale_area_row.grid(row=5, column=0, sticky="ew", pady=(0, 4))
         ctk.CTkLabel(self._scale_area_row, text="Blue dot diameter (mm):", width=160, anchor="w").pack(side="left")
         self._scale_area_entry = ctk.CTkEntry(self._scale_area_row, width=70)
         self._scale_area_entry.pack(side="left", padx=8)
@@ -174,16 +195,16 @@ class AnalyzeTab(ctk.CTkFrame):
             text_color="gray",
             wraplength=360,
             justify="left",
-        ).grid(row=5, column=0, sticky="w", pady=(8, 4))
+        ).grid(row=6, column=0, sticky="w", pady=(8, 4))
 
         btn_grid = ctk.CTkFrame(scroll, fg_color="transparent")
-        btn_grid.grid(row=6, column=0, sticky="ew", pady=16)
+        btn_grid.grid(row=7, column=0, sticky="ew", pady=16)
         btn_grid.grid_columnconfigure(0, weight=1)
         btn_grid.grid_columnconfigure(1, weight=1)
 
         self._run_btn = ctk.CTkButton(
             btn_grid,
-            text="Run HerbivoR",
+            text="Run Herbivora",
             height=40,
             font=ctk.CTkFont(weight="bold"),
             command=self._on_run,
@@ -245,7 +266,7 @@ class AnalyzeTab(ctk.CTkFrame):
             anchor="w",
             font=ctk.CTkFont(size=11),
         )
-        self._edit_hint.grid(row=7, column=0, sticky="ew", pady=(0, 8))
+        self._edit_hint.grid(row=8, column=0, sticky="ew", pady=(0, 8))
         self._edit_hint.grid_remove()
 
         self._damage_metrics = ctk.CTkLabel(
@@ -257,7 +278,25 @@ class AnalyzeTab(ctk.CTkFrame):
             anchor="w",
             font=ctk.CTkFont(size=15, weight="bold"),
         )
-        self._damage_metrics.grid(row=8, column=0, sticky="ew", pady=(4, 12))
+        self._damage_metrics.grid(row=9, column=0, sticky="ew", pady=(4, 12))
+
+    def _toggle_advanced(self) -> None:
+        if self._adv_visible:
+            self._hide_advanced()
+        else:
+            self._show_advanced()
+        self._state.analyze_advanced_expanded = self._adv_visible
+        self._on_change()
+
+    def _show_advanced(self) -> None:
+        self._adv_visible = True
+        self._adv_toggle.configure(text="Advanced options  ▲")
+        self._adv_frame.grid()
+
+    def _hide_advanced(self) -> None:
+        self._adv_visible = False
+        self._adv_toggle.configure(text="Advanced options  ▼")
+        self._adv_frame.grid_remove()
 
     def _on_damage_metrics(self, text: str) -> None:
         self._damage_metrics.configure(text=text or "")
@@ -324,6 +363,7 @@ class AnalyzeTab(ctk.CTkFrame):
         else:
             self._white_hole_adaptive.deselect()
         self._on_white_hole_auto_toggle()
+        self._state.superficial_damage = True
         # Measurement output
         if not self._state.remove_blue:
             self._radio_area.configure(state="disabled")
@@ -336,6 +376,10 @@ class AnalyzeTab(ctk.CTkFrame):
         self._scale_area_entry.delete(0, "end")
         self._scale_area_entry.insert(0, str(self._state.birefnet_known_diameter_mm))
         self._on_output_mode_change()
+        if self._state.analyze_advanced_expanded:
+            self._show_advanced()
+        else:
+            self._hide_advanced()
         self._state.roi_mode = CONTOUR_ROI_MODE
         self.refresh_preview()
 
@@ -368,6 +412,7 @@ class AnalyzeTab(ctk.CTkFrame):
         if self._state.white_hole_edge_band < 1 or self._state.white_hole_edge_band > 3:
             self._state.white_hole_edge_band = 2
         self._state.white_hole_adaptive = bool(self._white_hole_adaptive.get())
+        self._state.superficial_damage = True
         self._state.report_area_cm2 = (self._output_mode_var.get() == "Damage % + area (cm\u00b2)")
         import math as _math
         try:

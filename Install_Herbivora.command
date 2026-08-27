@@ -1,12 +1,12 @@
 #!/bin/bash
-# HerbivoR one-click installer for macOS (double-click in Finder).
-# Also works on Linux from a terminal: ./Install_HerbivoR.command
+# Herbivora one-click installer for macOS (double-click in Finder).
+# Also works on Linux from a terminal: ./Install_Herbivora.command
 cd "$(dirname "$0")" || exit 1
 
 BOOTSTRAP="packaging/bootstrap_install.py"
 if [[ ! -f "$BOOTSTRAP" ]]; then
   echo "ERROR: $BOOTSTRAP not found."
-  echo "Extract the full HerbivoR release and try again."
+  echo "Extract the full Herbivora release and try again."
   read -r -p "Press Enter to close..."
   exit 1
 fi
@@ -30,14 +30,14 @@ if [[ -z "$PY" ]]; then
   echo "On macOS:"
   echo "  1) Install from https://www.python.org/downloads/macos/"
   echo "     (or: xcode-select --install)"
-  echo "  2) Double-click Install_HerbivoR.command again."
+  echo "  2) Double-click Install_Herbivora.command again."
   echo
   echo "On Linux, install python3 via your package manager, then re-run."
   read -r -p "Press Enter to close..."
   exit 1
 fi
 
-echo "Starting HerbivoR installer with: $PY"
+echo "Starting Herbivora installer with: $PY"
 # Prefer GUI when a display is available; fall back to console.
 if [[ -n "${DISPLAY:-}" || "$(uname -s)" == "Darwin" ]]; then
   if "$PY" "$BOOTSTRAP" --gui --flavor auto; then

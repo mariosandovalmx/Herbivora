@@ -15,10 +15,10 @@ OUT = Path(__file__).resolve().parent / "installer_license.txt"
 
 HEADER = """\
 ================================================================================
-HerbivoR — END-USER LICENSE AGREEMENT (Installer copy)
+Herbivora — END-USER LICENSE AGREEMENT (Installer copy)
 ================================================================================
 
-By installing or using HerbivoR you agree to the terms below.
+By installing or using Herbivora you agree to the terms below.
 This file is shown by the installer; the same terms ship as LICENSE and
 THIRD_PARTY_NOTICES.md in the installation folder.
 
@@ -26,19 +26,19 @@ Copyright (c) 2026 Mario Sandoval
 
 IMPORTANT SUMMARY (not a substitute for the full terms):
   • Noncommercial research, education, and similar noncommercial use: permitted.
-  • Commercial use of HerbivoR or HerbivoR-trained weights: NOT permitted without
+  • Commercial use of Herbivora or Herbivora-trained weights: NOT permitted without
     prior written permission from the copyright holder.
-  • Attribution required when you use HerbivoR or its trained weights in a
+  • Attribution required when you use Herbivora or its trained weights in a
     publication, thesis, presentation, or similar work (see CITATION.cff).
   • Third-party components (MobileSAM, BiRefNet, Python packages, etc.) remain
     under their own licenses (see Part C below).
   • Software and weights are provided AS IS, without warranty.
 
 Commercial licensing / permissions:
-  https://github.com/mariosandovalmx/HerbivoR
+  https://github.com/mariosandovalmx/Herbivora
 
 ================================================================================
-PART A — HerbivoR LICENSE (PolyForm Noncommercial License 1.0.0 + notices)
+PART A — Herbivora LICENSE (PolyForm Noncommercial License 1.0.0 + notices)
 ================================================================================
 
 """
@@ -49,16 +49,16 @@ PART_B = """\
 PART B — REQUIRED ATTRIBUTION (CITATION)
 ================================================================================
 
-If you use HerbivoR (application and/or HerbivoR-trained model weights) in a
+If you use Herbivora (application and/or Herbivora-trained model weights) in a
 publication, thesis, presentation, or similar work, you MUST give appropriate
-credit. See CITATION.cff in the HerbivoR distribution for the preferred citation
+credit. See CITATION.cff in the Herbivora distribution for the preferred citation
 metadata.
 
-Required Notice: Copyright (c) 2026 Mario Sandoval — HerbivoR (software and
-HerbivoR-trained weights)
+Required Notice: Copyright (c) 2026 Mario Sandoval — Herbivora (software and
+Herbivora-trained weights)
 Required Notice: Noncommercial use only (research / education). Commercial use
 requires prior written permission from the copyright holder.
-Required Notice: Attribution required — if you use HerbivoR or its trained
+Required Notice: Attribution required — if you use Herbivora or its trained
 weights in a publication or presentation, cite it (see CITATION.cff).
 
 """
@@ -76,7 +76,7 @@ FOOTER = """\
 END OF INSTALLER LICENSE TEXT
 ================================================================================
 
-Installing HerbivoR constitutes acceptance of Parts A–C above.
+Installing Herbivora constitutes acceptance of Parts A–C above.
 """
 
 
@@ -87,7 +87,7 @@ def build_text() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build the HerbivoR installer license text")
+    parser = argparse.ArgumentParser(description="Build the Herbivora installer license text")
     parser.add_argument("output", nargs="?", type=Path, default=OUT)
     args = parser.parse_args(argv)
     text = build_text()

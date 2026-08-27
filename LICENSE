@@ -1,4 +1,4 @@
-HerbivoR — Noncommercial Research & Education License
+Herbivora — Noncommercial Research & Education License
 =====================================================
 
 Copyright (c) 2026 Mario Sandoval
@@ -8,14 +8,14 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0
 required notices below.
 
 Plain-language summary (not a substitute for the full terms):
-  - You MAY use HerbivoR (application and HerbivoR-trained model weights)
+  - You MAY use Herbivora (application and Herbivora-trained model weights)
     for noncommercial research, education, personal study, and similar
     noncommercial purposes.
-  - You may NOT use HerbivoR or its trained weights for commercial purposes
+  - You may NOT use Herbivora or its trained weights for commercial purposes
     (including selling the software, offering it as a paid service, or using
     it as part of a commercial product or workflow) without prior written
     permission from the copyright holder.
-  - If you use HerbivoR or its trained weights in a publication, thesis,
+  - If you use Herbivora or its trained weights in a publication, thesis,
     presentation, or similar work, you MUST give appropriate credit (see
     CITATION.cff and the Required Notices below).
   - Third-party components (e.g. MobileSAM, BiRefNet) remain under their
@@ -23,11 +23,11 @@ Plain-language summary (not a substitute for the full terms):
   - The software and weights are provided "AS IS", without warranty.
 
 For commercial licensing, contact the copyright holder via the project
-repository: https://github.com/mariosandovalmx/HerbivoR
+repository: https://github.com/mariosandovalmx/Herbivora
 
-Required Notice: Copyright (c) 2026 Mario Sandoval — HerbivoR (software and HerbivoR-trained weights)
+Required Notice: Copyright (c) 2026 Mario Sandoval — Herbivora (software and Herbivora-trained weights)
 Required Notice: Noncommercial use only (research / education). Commercial use requires prior written permission from the copyright holder.
-Required Notice: Attribution required — if you use HerbivoR or its trained weights in a publication or presentation, cite it (see CITATION.cff in the source distribution).
+Required Notice: Attribution required — if you use Herbivora or its trained weights in a publication or presentation, cite it (see CITATION.cff in the source distribution).
 
 ---------------------------------------------------------------------------
 

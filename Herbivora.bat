@@ -6,13 +6,13 @@ cd /d "%~dp0"
 
 REM Auto-setup on first launch if Setup finished copying files but deps were skipped.
 if not exist ".venv\Scripts\python.exe" (
-    echo HerbivoR needs a one-time setup ^(Python packages + models^).
+    echo Herbivora needs a one-time setup ^(Python packages + models^).
     echo This can take 5-20 minutes and requires internet...
     echo.
-    call "%~dp0Install_HerbivoR.bat" /auto
+    call "%~dp0Install_Herbivora.bat" /auto
     if errorlevel 1 (
         echo.
-        echo Setup failed. See messages above, then re-run Install_HerbivoR.bat.
+        echo Setup failed. See messages above, then re-run Install_Herbivora.bat.
         pause
         exit /b 1
     )
@@ -34,8 +34,8 @@ if exist ".venv\Scripts\python.exe" (
     if not errorlevel 1 exit /b 0
 )
 
-echo HerbivoR failed to start.
+echo Herbivora failed to start.
 echo If the window does not appear, check gui_error.log in this folder.
-echo You can also re-run Install_HerbivoR.bat to repair the install.
+echo You can also re-run Install_Herbivora.bat to repair the install.
 pause
 exit /b 1

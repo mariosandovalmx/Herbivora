@@ -127,6 +127,22 @@ DEFAULT_WHITE_HOLE_EDGE_BAND = 2
 DEFAULT_WHITE_HOLE_ADAPTIVE = True
 DEFAULT_WHITE_HOLE_AUTO_FLOOR = 175
 DEFAULT_WHITE_HOLE_AUTO_CEILING = 250
+DEFAULT_SUPERFICIAL_DAMAGE = True
+DEFAULT_SUPERFICIAL_MIN_AREA = 20
+DEFAULT_SUPERFICIAL_VS_RATIO = 1.1
+DEFAULT_SUPERFICIAL_VS_MULT = 2.0
+DEFAULT_SUPERFICIAL_MAX_SAT = 110
+DEFAULT_FRASS_ZONE_DILATE = 5
+DEFAULT_FRASS_DARK_THRESHOLD = 75
+DEFAULT_FRASS_LOCAL_CONTRAST = 16.0
+DEFAULT_FRASS_MIN_AREA = 4
+DEFAULT_FRASS_MAX_AREA = 1200
+DEFAULT_FRASS_NEUTRAL_CHROMA = 55
+DEFAULT_FRASS_DAMAGE_DILATE = 5
+DEFAULT_FRASS_IN_DAMAGE_CONTRAST = 14.0
+DEFAULT_FRASS_IN_DAMAGE_GRAY_MAX = 108
+DEFAULT_FRASS_IN_DAMAGE_MAX_AREA = 900
+DEFAULT_DAMAGE_OVERLAY_ALPHA = 0.45
 DEFAULT_EDGE_ARTIFACT_FILTER = True
 # Target thin contour ghosts only — keep real holes / notches / interior damage.
 DEFAULT_EDGE_MIN_INWARD_PX = 3.5
@@ -705,6 +721,284 @@ def _white_holes_at_threshold(
     return out
 
 
+def _healthy_tissue_reference_mask(
+    orig_rgb: np.ndarray,
+    base_roi: np.ndarray,
+) -> np.ndarray:
+    """Dark-green reference pixels used to calibrate superficial-damage thresholds."""
+    roi = base_roi.astype(bool)
+    if not np.any(roi):
+        return np.zeros_like(roi, dtype=bool)
+
+    hsv = cv2.cvtColor(cv2.cvtColor(orig_rgb, cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    green_h = (h >= 18) & (h <= 100)
+    healthy = roi & green_h & (s >= 100) & (v <= 130)
+    if int(healthy.sum()) < 500:
+        healthy = roi & green_h & (s >= 70) & (v <= 150)
+    if int(healthy.sum()) < 100 and int(roi.sum()) > 0:
+        sat_thr = float(np.percentile(s[roi], 85))
+        healthy = roi & (s >= sat_thr) & (v <= 150)
+    return healthy
+
+
+def trim_contour_halo_from_tissue(
+    tissue_mask: np.ndarray,
+    orig_rgb: np.ndarray,
+) -> tuple[np.ndarray, int]:
+    """Remove exterior Contour halo pixels that extend onto white paper."""
+    tissue = tissue_mask.astype(bool)
+    if not np.any(tissue):
+        return tissue, 0
+
+    foliage = _foliage_mask_rgb(orig_rgb)
+    filled = fill_roi_holes(tissue)
+    exterior_touch = cv2.dilate(
+        (~filled).astype(np.uint8), np.ones((3, 3), np.uint8), iterations=1
+    ).astype(bool)
+    halo = tissue & ~foliage & exterior_touch
+    removed = int(halo.sum())
+    if removed == 0:
+        return tissue, 0
+    return tissue & ~halo, removed
+
+
+def _rim_nonfoliage_ghost_mask(
+    tissue_mask: np.ndarray,
+    orig_rgb: np.ndarray,
+    edge_band_px: float,
+) -> np.ndarray:
+    """Non-foliage anti-alias strip hugging the outer lamina contour."""
+    tissue = tissue_mask.astype(bool)
+    if not np.any(tissue) or edge_band_px <= 0:
+        return np.zeros_like(tissue, dtype=bool)
+
+    foliage = _foliage_mask_rgb(orig_rgb)
+    filled = fill_roi_holes(tissue)
+    dist_in = cv2.distanceTransform(filled.astype(np.uint8), cv2.DIST_L2, 5)
+    band = max(1.0, float(edge_band_px))
+    return (~foliage) & filled & (dist_in <= band)
+
+
+def partition_frass_by_context(
+    frass_roi: np.ndarray,
+    pred_mask: np.ndarray,
+    leaf_roi: np.ndarray,
+    damage_context: np.ndarray,
+    orig_rgb: np.ndarray | None = None,
+    *,
+    zone_dilate_px: int = DEFAULT_FRASS_ZONE_DILATE,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Assign U-Net frass pixels to damage or undamaged tissue by spatial context.
+
+    Frass sitting on damaged lamina is merged into the headline damage mask;
+    frass on healthy tissue is merged into the undamaged tally so it is not
+    excluded from the ROI partition.
+    """
+    frass = frass_roi.astype(bool)
+    if not np.any(frass):
+        return np.zeros_like(frass, dtype=bool), np.zeros_like(frass, dtype=bool)
+
+    roi = leaf_roi.astype(bool)
+    damage_ctx = damage_context.astype(bool)
+    undamage = (pred_mask == 3) & roi
+
+    k = max(3, 2 * int(zone_dilate_px) + 1)
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    dmg_zone = cv2.dilate(damage_ctx.astype(np.uint8), ker, iterations=1) > 0
+    und_zone = cv2.dilate(undamage.astype(np.uint8), ker, iterations=1) > 0
+
+    frass_on_damage = frass & dmg_zone
+    frass_on_undamage = frass & und_zone & ~dmg_zone
+    remaining = frass & ~frass_on_damage & ~frass_on_undamage
+
+    if np.any(remaining) and orig_rgb is not None:
+        foliage = _foliage_mask_rgb(orig_rgb)
+        hsv = cv2.cvtColor(cv2.cvtColor(orig_rgb, cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2HSV)
+        s, v = hsv[:, :, 1], hsv[:, :, 2]
+        green_healthy = foliage & (s >= 70) & (v <= 170)
+        frass_on_undamage |= remaining & green_healthy
+        frass_on_damage |= remaining & ~green_healthy
+    elif np.any(remaining):
+        frass_on_damage |= remaining
+
+    return frass_on_damage, frass_on_undamage
+
+
+def detect_frass_rgb(
+    orig_rgb: np.ndarray,
+    leaf_roi: np.ndarray,
+    tissue_mask: np.ndarray | None = None,
+    *,
+    dark_threshold: int = DEFAULT_FRASS_DARK_THRESHOLD,
+    local_contrast: float = DEFAULT_FRASS_LOCAL_CONTRAST,
+    min_area: int = DEFAULT_FRASS_MIN_AREA,
+    max_area: int = DEFAULT_FRASS_MAX_AREA,
+    neutral_chroma: int = DEFAULT_FRASS_NEUTRAL_CHROMA,
+) -> np.ndarray:
+    """
+    Detect dark frass pellets from RGB (local contrast + compact dark blobs).
+
+    The damage U-Net often labels frass pixels as undamaged tissue; this helper
+    recovers small neutral dark spots on the lamina.
+    """
+    roi = leaf_roi.astype(bool)
+    if not np.any(roi):
+        return np.zeros_like(roi, dtype=bool)
+
+    tissue = tissue_mask.astype(bool) if tissue_mask is not None else roi
+    bgr = cv2.cvtColor(orig_rgb, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    local_mean = cv2.blur(gray, (13, 13))
+    contrast_mask = (local_mean - gray) >= float(local_contrast)
+    dark_mask = gray <= float(dark_threshold)
+
+    r, g, b = orig_rgb[:, :, 0], orig_rgb[:, :, 1], orig_rgb[:, :, 2]
+    mx = np.maximum(np.maximum(r, g), b)
+    mn = np.minimum(np.minimum(r, g), b)
+    neutral = (mx.astype(np.int16) - mn.astype(np.int16)) <= int(neutral_chroma)
+    white = (r >= 250) & (g >= 250) & (b >= 250)
+    candidates = roi & tissue & contrast_mask & dark_mask & neutral & ~white
+
+    out = np.zeros_like(roi, dtype=bool)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(
+        candidates.astype(np.uint8), connectivity=8
+    )
+    for i in range(1, n):
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if int(min_area) <= area <= int(max_area):
+            out |= labels == i
+    return out
+
+
+def detect_frass_in_damage_zone(
+    orig_rgb: np.ndarray,
+    damage_context: np.ndarray,
+    leaf_roi: np.ndarray,
+    tissue_mask: np.ndarray | None = None,
+    *,
+    local_contrast: float = DEFAULT_FRASS_IN_DAMAGE_CONTRAST,
+    gray_max: int = DEFAULT_FRASS_IN_DAMAGE_GRAY_MAX,
+    min_area: int = DEFAULT_FRASS_MIN_AREA,
+    max_area: int = DEFAULT_FRASS_IN_DAMAGE_MAX_AREA,
+) -> np.ndarray:
+    """
+    Detect brown/maroon frass pellets sitting on scraped or damaged lamina.
+
+    On pale damaged tissue, frass often lacks global contrast; here we require
+    only a modest local darkening relative to the surrounding damage patch.
+    """
+    ctx = damage_context.astype(bool)
+    roi = leaf_roi.astype(bool)
+    if not np.any(ctx) or orig_rgb is None:
+        return np.zeros_like(roi, dtype=bool)
+
+    tissue = tissue_mask.astype(bool) if tissue_mask is not None else roi
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    zone = cv2.dilate(ctx.astype(np.uint8), ker, iterations=1) > 0
+    zone &= roi & tissue
+
+    bgr = cv2.cvtColor(orig_rgb, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    local_mean = cv2.blur(gray, (11, 11))
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    green = (h >= 25) & (h <= 90) & (s >= 55)
+    r, g, b = orig_rgb[:, :, 0], orig_rgb[:, :, 1], orig_rgb[:, :, 2]
+    white = (r >= 250) & (g >= 250) & (b >= 250)
+
+    candidates = (
+        zone
+        & ~white
+        & ~green
+        & ((local_mean - gray) >= float(local_contrast))
+        & (gray <= float(gray_max))
+    )
+
+    out = np.zeros_like(roi, dtype=bool)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(
+        candidates.astype(np.uint8), connectivity=8
+    )
+    for i in range(1, n):
+        comp = labels == i
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if not (int(min_area) <= area <= int(max_area)):
+            continue
+        if not np.any(comp & ctx):
+            continue
+        out |= comp
+    return out
+
+
+def detect_superficial_damage(
+    orig_rgb: np.ndarray,
+    tissue_mask: np.ndarray,
+    leaf_roi: np.ndarray,
+    *,
+    min_area: int = DEFAULT_SUPERFICIAL_MIN_AREA,
+    min_vs_ratio: float = DEFAULT_SUPERFICIAL_VS_RATIO,
+    vs_mult: float = DEFAULT_SUPERFICIAL_VS_MULT,
+    max_sat: int = DEFAULT_SUPERFICIAL_MAX_SAT,
+    edge_band_px: int = DEFAULT_WHITE_HOLE_EDGE_BAND,
+) -> tuple[np.ndarray, dict]:
+    """
+    Detect pale scraped tissue inside the leaf ROI.
+
+    Scraped areas keep a thin tissue layer (not pure white holes). They are
+    brighter and less saturated than healthy lamina, which shows up as a higher
+    value/saturation (V/S) ratio in HSV.
+    """
+    roi = leaf_roi.astype(bool)
+    if not np.any(roi):
+        return np.zeros_like(roi, dtype=bool), {}
+
+    hsv = cv2.cvtColor(cv2.cvtColor(orig_rgb, cv2.COLOR_RGB2BGR), cv2.COLOR_BGR2HSV)
+    _h, s, v = hsv[:, :, 0], hsv[:, :, 1].astype(np.float32), hsv[:, :, 2].astype(np.float32)
+    r, g, b = orig_rgb[:, :, 0], orig_rgb[:, :, 1], orig_rgb[:, :, 2]
+    white = (r >= 250) & (g >= 250) & (b >= 250)
+    base = roi & ~white
+
+    healthy = _healthy_tissue_reference_mask(orig_rgb, base)
+    meta: dict = {
+        "healthy_ref_px": int(healthy.sum()),
+        "vs_threshold": float(min_vs_ratio),
+        "healthy_vs_median": None,
+    }
+    if int(healthy.sum()) < 50:
+        return np.zeros_like(roi, dtype=bool), meta
+
+    ratio = v / np.maximum(s, 1.0)
+    ref_vs = float(np.median(ratio[healthy]))
+    meta["healthy_vs_median"] = ref_vs
+    vs_thr = max(float(min_vs_ratio), ref_vs * float(vs_mult))
+    meta["vs_threshold"] = vs_thr
+
+    superficial = (
+        base
+        & (ratio >= vs_thr)
+        & (s >= 12)
+        & (s <= int(max_sat))
+        & (v >= 55)
+        & (v <= 245)
+    )
+
+    if edge_band_px > 0 and np.any(tissue_mask):
+        dist_source = fill_roi_holes(tissue_mask.astype(bool))
+        dist_in = cv2.distanceTransform(dist_source.astype(np.uint8), cv2.DIST_L2, 5)
+        superficial &= dist_in > float(edge_band_px)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    cand_u8 = cv2.morphologyEx(superficial.astype(np.uint8), cv2.MORPH_OPEN, kernel, iterations=1)
+    out = np.zeros_like(roi, dtype=bool)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(cand_u8, connectivity=8)
+    for i in range(1, n):
+        if stats[i, cv2.CC_STAT_AREA] >= int(min_area):
+            out |= labels == i
+    meta["raw_px"] = int(out.sum())
+    return out, meta
+
+
 def white_holes_inside_roi(
     orig_rgb: np.ndarray,
     leaf_roi: np.ndarray,
@@ -779,6 +1073,8 @@ def compute_leaf_damage_metrics(
     white_hole_min_area: int = DEFAULT_WHITE_HOLE_MIN_AREA,
     white_hole_edge_band: int = DEFAULT_WHITE_HOLE_EDGE_BAND,
     white_hole_adaptive: bool = DEFAULT_WHITE_HOLE_ADAPTIVE,
+    superficial_damage: bool = DEFAULT_SUPERFICIAL_DAMAGE,
+    superficial_min_area: int = DEFAULT_SUPERFICIAL_MIN_AREA,
 ) -> dict:
     """
     % damage = (U-Net class 1 + optional internal holes + white holes) / ROI area.
@@ -821,24 +1117,91 @@ def compute_leaf_damage_metrics(
     white_holes = strip_perimeter_damage_bool(internal_extra | rgb_holes, tissue)
     white_holes_px = int(white_holes.sum())
 
+    superficial_meta: dict = {}
+    rim_ghost = np.zeros_like(leaf_roi, dtype=bool)
+    if orig_rgb is not None:
+        rim_ghost = _rim_nonfoliage_ghost_mask(tissue, orig_rgb, white_hole_edge_band)
+
+    if superficial_damage and orig_rgb is not None:
+        superficial_raw, superficial_meta = detect_superficial_damage(
+            orig_rgb,
+            tissue,
+            leaf_roi,
+            min_area=superficial_min_area,
+            edge_band_px=white_hole_edge_band,
+        )
+        superficial_raw = superficial_raw & (pred_mask != 1) & ~white_holes & ~rim_ghost
+        superficial = strip_perimeter_damage_bool(superficial_raw, tissue)
+    else:
+        superficial = np.zeros_like(leaf_roi, dtype=bool)
+    superficial_px = int(superficial.sum())
+
     marginal_roi = compute_marginal_damage_roi(
         leaf_roi, tissue, pred_mask, fill_marginal=fill_marginal, roi_mode=roi_mode,
         orig_rgb=orig_rgb,
     )
     marginal_roi = strip_perimeter_damage_bool(marginal_roi, tissue)
     marginal_damage_px = int(marginal_roi.sum())
+
+    damage_context = strip_perimeter_damage_bool(
+        (((pred_mask == 1) & leaf_roi) & ~rim_ghost) | white_holes | superficial,
+        tissue,
+    )
+
+    rgb_frass_global = (
+        detect_frass_rgb(orig_rgb, leaf_roi, tissue)
+        if orig_rgb is not None
+        else np.zeros_like(leaf_roi, dtype=bool)
+    )
+    rgb_frass_in_damage = (
+        detect_frass_in_damage_zone(orig_rgb, damage_context, leaf_roi, tissue)
+        if orig_rgb is not None
+        else np.zeros_like(leaf_roi, dtype=bool)
+    )
+    rgb_frass = rgb_frass_global | rgb_frass_in_damage
+    frass_roi = ((pred_mask == 2) & leaf_roi) | rgb_frass
+
+    frass_on_damage, frass_on_undamage = partition_frass_by_context(
+        frass_roi,
+        pred_mask,
+        leaf_roi,
+        damage_context,
+        orig_rgb=orig_rgb,
+    )
+    # Any frass pellet inside the current damage zone fills the red mask gap.
+    if np.any(frass_roi) and np.any(damage_context):
+        k = max(
+            3,
+            2 * int(DEFAULT_FRASS_DAMAGE_DILATE) + 1,
+        )
+        ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+        dmg_zone = cv2.dilate(damage_context.astype(np.uint8), ker, iterations=1) > 0
+        frass_inside_damage = frass_roi & dmg_zone
+        frass_on_damage = frass_on_damage | frass_inside_damage | rgb_frass_in_damage
+        frass_on_undamage = frass_on_undamage & ~frass_on_damage
+
     if roi_mode in ("filled", "lama") and fill_marginal:
         damage_union = strip_perimeter_damage_bool(
-            ((pred_mask == 1) & leaf_roi) | white_holes,
+            damage_context | frass_on_damage,
             tissue,
         )
-        damage_px = int(damage_union.sum())
     else:
-        damage_px = visible_damage_px + marginal_damage_px + white_holes_px
+        damage_union = strip_perimeter_damage_bool(
+            damage_context | frass_on_damage | marginal_roi,
+            tissue,
+        )
+    damage_px = int(damage_union.sum())
 
-    frass_px = int(((pred_mask == 2) & leaf_roi).sum())
-    undamage_px = int(((pred_mask == 3) & leaf_roi).sum())
-    ignored_px = max(0, leaf_area_px - damage_px - frass_px - undamage_px)
+    frass_px = int(frass_roi.sum())
+    frass_rgb_px = int(rgb_frass.sum())
+    frass_rgb_in_damage_px = int(rgb_frass_in_damage.sum())
+    frass_unet_px = int(((pred_mask == 2) & leaf_roi).sum())
+    frass_on_damage_px = int(frass_on_damage.sum())
+    frass_on_undamage_px = int(frass_on_undamage.sum())
+    undamage_base = (pred_mask == 3) & leaf_roi
+    undamage_px = int((undamage_base | frass_on_undamage).sum())
+    ignored_px = max(0, leaf_area_px - damage_px - undamage_px)
+
     healthy_px = leaf_area_px - damage_px
 
     damage_pct = (damage_px / leaf_area_px * 100.0) if leaf_area_px > 0 else 0.0
@@ -848,7 +1211,6 @@ def compute_leaf_damage_metrics(
     marginal_damage_pct = (
         (marginal_damage_px / leaf_area_px * 100.0) if leaf_area_px > 0 else 0.0
     )
-    frass_pct = (frass_px / leaf_area_px * 100.0) if leaf_area_px > 0 else 0.0
     undamage_pct = (undamage_px / leaf_area_px * 100.0) if leaf_area_px > 0 else 0.0
 
     tissue_area_px = int(tissue.sum())
@@ -872,8 +1234,22 @@ def compute_leaf_damage_metrics(
         "internal_holes_px": internal_holes_px,
         "rgb_holes_px": rgb_holes_px,
         "white_hole_threshold_used": used_thresh,
+        "superficial_px": superficial_px,
+        "superficial_pct": (superficial_px / leaf_area_px * 100.0) if leaf_area_px > 0 else 0.0,
+        "superficial_roi": superficial,
+        "superficial_meta": superficial_meta,
         "frass_px": frass_px,
-        "frass_pct": frass_pct,
+        "frass_pct": (frass_px / leaf_area_px * 100.0) if leaf_area_px > 0 else 0.0,
+        "frass_rgb_px": frass_rgb_px,
+        "frass_rgb_in_damage_px": frass_rgb_in_damage_px,
+        "frass_unet_px": frass_unet_px,
+        "frass_on_damage_px": frass_on_damage_px,
+        "frass_on_undamage_px": frass_on_undamage_px,
+        "frass_on_damage_roi": frass_on_damage,
+        "frass_on_undamage_roi": frass_on_undamage,
+        "frass_rgb_roi": rgb_frass,
+        "frass_in_damage_roi": rgb_frass_in_damage,
+        "damage_roi": damage_union,
         "undamage_px": undamage_px,
         "undamage_pct": undamage_pct,
         "healthy_px": healthy_px,
@@ -958,10 +1334,16 @@ def build_editable_damage_mask(
     metrics: dict,
 ) -> np.ndarray:
     """Boolean mask of all pixels counted as damage (matches metrics damage_px)."""
+    damage_roi = metrics.get("damage_roi")
+    if damage_roi is not None:
+        return damage_roi.astype(bool)
+
     visible_damage = (pred_mask == 1) & leaf_roi
     white_holes_roi = metrics.get("white_holes_roi", np.zeros_like(leaf_roi, dtype=bool))
+    superficial_roi = metrics.get("superficial_roi", np.zeros_like(leaf_roi, dtype=bool))
+    frass_on_damage = metrics.get("frass_on_damage_roi", np.zeros_like(leaf_roi, dtype=bool))
     marginal = metrics.get("marginal_roi", np.zeros_like(leaf_roi, dtype=bool))
-    combined = visible_damage | white_holes_roi | marginal
+    combined = visible_damage | white_holes_roi | superficial_roi | frass_on_damage | marginal
     tissue = metrics.get("tissue_mask")
     if tissue is None:
         tissue = leaf_roi
@@ -972,15 +1354,18 @@ def compose_damage_rgb(
     orig_rgb: np.ndarray,
     damage_mask: np.ndarray,
     leaf_roi: np.ndarray,
+    *,
+    overlay_alpha: float = DEFAULT_DAMAGE_OVERLAY_ALPHA,
 ) -> np.ndarray:
-    """RGB preview: leaf on white background; damage is solid red (incl. white edge bites)."""
-    roi_vis = orig_rgb.copy()
+    """RGB preview: leaf on white background; damage shown as semi-transparent red."""
+    roi_vis = orig_rgb.copy().astype(np.float32)
     damage = damage_mask.astype(bool)
-    roi_vis[~leaf_roi] = 255
+    roi_vis[~leaf_roi] = 255.0
     if np.any(damage):
-        # Solid red so bites outside the green tissue are obvious
-        roi_vis[damage] = np.array([220, 50, 50], dtype=np.uint8)
-    return roi_vis
+        alpha = float(np.clip(overlay_alpha, 0.05, 1.0))
+        red = np.array([220.0, 50.0, 50.0], dtype=np.float32)
+        roi_vis[damage] = (1.0 - alpha) * roi_vis[damage] + alpha * red
+    return np.clip(roi_vis, 0, 255).astype(np.uint8)
 
 
 def connected_damage_component(
@@ -1222,6 +1607,8 @@ def process_leaf_pair(
     white_hole_min_area: int = DEFAULT_WHITE_HOLE_MIN_AREA,
     white_hole_edge_band: int = DEFAULT_WHITE_HOLE_EDGE_BAND,
     white_hole_adaptive: bool = DEFAULT_WHITE_HOLE_ADAPTIVE,
+    superficial_damage: bool = DEFAULT_SUPERFICIAL_DAMAGE,
+    superficial_min_area: int = DEFAULT_SUPERFICIAL_MIN_AREA,
     edge_artifact_filter: bool = DEFAULT_EDGE_ARTIFACT_FILTER,
     edge_min_area: int | None = None,
     edge_min_inward_px: float = DEFAULT_EDGE_MIN_INWARD_PX,
@@ -1257,6 +1644,12 @@ def process_leaf_pair(
         )
     tissue_full = leaf_mask_raw > 127
     tissue_full, mask_refined = refine_leaf_roi_from_image(tissue_full, orig_rgb)
+    tissue_full, halo_trim_px = trim_contour_halo_from_tissue(tissue_full, orig_rgb)
+    if halo_trim_px:
+        print(
+            f"  Contour halo trim: removed {halo_trim_px:,} px "
+            f"outside visible lamina"
+        )
     if int(tissue_full.sum()) == 0:
         print("  WARNING: Empty leaf mask, skipping.")
         return []
@@ -1310,7 +1703,9 @@ def process_leaf_pair(
     combined_tissue = np.zeros_like(tissue_full, dtype=bool)
     combined_marginal = np.zeros_like(tissue_full, dtype=bool)
     combined_white_holes = np.zeros_like(tissue_full, dtype=bool)
-    agg_damage = agg_area = agg_visible = agg_marginal = agg_white_holes = 0
+    combined_superficial = np.zeros_like(tissue_full, dtype=bool)
+    combined_frass_on_damage = np.zeros_like(tissue_full, dtype=bool)
+    agg_damage = agg_area = agg_visible = agg_marginal = agg_white_holes = agg_superficial = 0
 
     rows: list[dict] = []
     n_frag = len(fragments)
@@ -1331,27 +1726,40 @@ def process_leaf_pair(
             white_hole_min_area=white_hole_min_area,
             white_hole_edge_band=white_hole_edge_band,
             white_hole_adaptive=white_hole_adaptive,
+            superficial_damage=superficial_damage,
+            superficial_min_area=superficial_min_area,
         )
 
         rh = metrics.get("rgb_holes_px", 0)
         ih = metrics.get("internal_holes_px", 0)
+        sp = metrics.get("superficial_px", 0)
+        fp = metrics.get("frass_px", 0)
+        fpd = metrics.get("frass_on_damage_px", 0)
+        fpu = metrics.get("frass_on_undamage_px", 0)
         used_t = metrics.get("white_hole_threshold_used")
-        if rh or ih or used_t is not None:
+        if rh or ih or sp or fp or used_t is not None:
             auto_tag = f"  auto_brightness={used_t}" if white_hole_adaptive else f"  brightness={used_t}"
+            frass_tag = ""
+            if fp:
+                frass_tag = f"  |  frass {fp:,} px (→ damage {fpd:,}, undamage {fpu:,})"
             print(
                 f"  Hole detection: U-Net {metrics['visible_damage_px']:,} px  |  "
-                f"RGB holes {rh:,} px  |  mask holes {ih:,} px{auto_tag}"
+                f"RGB holes {rh:,} px  |  mask holes {ih:,} px  |  "
+                f"superficial {sp:,} px{frass_tag}{auto_tag}"
             )
 
         combined_roi |= leaf_roi
         combined_tissue |= tissue_mask
         combined_marginal |= metrics.get("marginal_roi", np.zeros_like(leaf_roi))
         combined_white_holes |= metrics.get("white_holes_roi", np.zeros_like(leaf_roi))
+        combined_superficial |= metrics.get("superficial_roi", np.zeros_like(leaf_roi))
+        combined_frass_on_damage |= metrics.get("frass_on_damage_roi", np.zeros_like(leaf_roi))
         agg_damage += metrics["damage_px"]
         agg_area += metrics["leaf_area_px"]
         agg_visible += metrics["visible_damage_px"]
         agg_marginal += metrics["marginal_damage_px"]
         agg_white_holes += metrics.get("white_holes_px", 0)
+        agg_superficial += metrics.get("superficial_px", 0)
 
         frag_tag = f" frag {frag_i}/{n_frag}" if n_frag > 1 else ""
         if scale_cm2_per_px:
@@ -1388,8 +1796,15 @@ def process_leaf_pair(
         combined_roi,
         tissue_mask=combined_tissue,
         raw_mask=fill_roi_holes(combined_tissue),
-        fill_marginal=False,
+        fill_marginal=use_marginal,
         roi_mode=roi_mode,
+        orig_rgb=orig_rgb,
+        white_threshold=white_hole_brightness,
+        white_hole_min_area=white_hole_min_area,
+        white_hole_edge_band=white_hole_edge_band,
+        white_hole_adaptive=white_hole_adaptive,
+        superficial_damage=superficial_damage,
+        superficial_min_area=superficial_min_area,
     )
     viz_metrics["damage_px"] = agg_damage
     viz_metrics["damage_pct"] = agg_pct
@@ -1398,6 +1813,13 @@ def process_leaf_pair(
     viz_metrics["marginal_roi"] = combined_marginal
     viz_metrics["white_holes_roi"] = combined_white_holes
     viz_metrics["white_holes_px"] = agg_white_holes
+    viz_metrics["superficial_roi"] = combined_superficial
+    viz_metrics["superficial_px"] = agg_superficial
+    viz_metrics["frass_on_damage_roi"] = combined_frass_on_damage
+    viz_metrics["damage_roi"] = strip_perimeter_damage_bool(
+        (((pred_mask == 1) & combined_roi) | combined_white_holes | combined_superficial | combined_frass_on_damage | combined_marginal),
+        combined_tissue,
+    )
     viz_metrics["tissue_mask"] = combined_tissue
 
     out_stem = os.path.splitext(image_name)[0]
@@ -1449,6 +1871,8 @@ def run(
     white_hole_min_area: int = DEFAULT_WHITE_HOLE_MIN_AREA,
     white_hole_edge_band: int = DEFAULT_WHITE_HOLE_EDGE_BAND,
     white_hole_adaptive: bool = DEFAULT_WHITE_HOLE_ADAPTIVE,
+    superficial_damage: bool = DEFAULT_SUPERFICIAL_DAMAGE,
+    superficial_min_area: int = DEFAULT_SUPERFICIAL_MIN_AREA,
     edge_artifact_filter: bool = DEFAULT_EDGE_ARTIFACT_FILTER,
     edge_min_area: int | None = None,
     edge_min_inward_px: float = DEFAULT_EDGE_MIN_INWARD_PX,
@@ -1483,6 +1907,11 @@ def run(
         f"  White hole detection  : "
         f"{'AUTO brightness (per image)' if white_hole_adaptive else f'brightness>={white_hole_brightness}'}  "
         f"min_area={white_hole_min_area}  edge_band={white_hole_edge_band}px"
+    )
+    print(
+        f"  Superficial damage   : "
+        f"{'ON' if superficial_damage else 'OFF'}"
+        f"{f'  min_area={superficial_min_area}' if superficial_damage else ''}"
     )
     print(f"  Fragments             : one ROI per connected component")
     print(f"  Scale reference    : {scale_file if scale_file else 'None (% only)'}")
@@ -1525,6 +1954,8 @@ def run(
             white_hole_min_area=white_hole_min_area,
             white_hole_edge_band=white_hole_edge_band,
             white_hole_adaptive=white_hole_adaptive,
+            superficial_damage=superficial_damage,
+            superficial_min_area=superficial_min_area,
             edge_artifact_filter=edge_artifact_filter,
             edge_min_area=edge_min_area,
             edge_min_inward_px=edge_min_inward_px,
@@ -1677,6 +2108,17 @@ def main() -> None:
         help="Disable per-image AUTO brightness (use --white-hole-brightness as fixed threshold).",
     )
     parser.add_argument(
+        "--no-superficial-damage",
+        action="store_true",
+        help="Disable pale scraped-tissue detection (superficial herbivory).",
+    )
+    parser.add_argument(
+        "--superficial-min-area",
+        type=int,
+        default=DEFAULT_SUPERFICIAL_MIN_AREA,
+        help=f"Minimum connected area (px) for superficial damage (default: {DEFAULT_SUPERFICIAL_MIN_AREA}).",
+    )
+    parser.add_argument(
         "--no-edge-artifact-filter",
         action="store_true",
         help=(
@@ -1714,6 +2156,8 @@ def main() -> None:
         white_hole_min_area=args.white_hole_min_area,
         white_hole_edge_band=args.white_hole_edge_band,
         white_hole_adaptive=not args.no_white_hole_adaptive,
+        superficial_damage=not args.no_superficial_damage,
+        superficial_min_area=args.superficial_min_area,
         edge_artifact_filter=not args.no_edge_artifact_filter,
         edge_min_area=args.edge_min_area,
         edge_min_inward_px=args.edge_min_inward_px,

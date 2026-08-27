@@ -1,5 +1,5 @@
 @echo off
-REM Build HerbivoR-Setup-v*.exe with Inno Setup (maintainers).
+REM Build Herbivora-Setup-v*.exe with Inno Setup (maintainers).
 setlocal
 cd /d "%~dp0.."
 
@@ -27,8 +27,8 @@ echo Building installer license text (LICENSE + third-party notices)...
 where python >nul 2>&1
 if not errorlevel 1 (
     python "packaging\build_installer_license.py"
-) else if exist "%LOCALAPPDATA%\HerbivoR\Python\python.exe" (
-    "%LOCALAPPDATA%\HerbivoR\Python\python.exe" "packaging\build_installer_license.py"
+) else if exist "%LOCALAPPDATA%\Herbivora\Python\python.exe" (
+    "%LOCALAPPDATA%\Herbivora\Python\python.exe" "packaging\build_installer_license.py"
 ) else if exist ".venv\Scripts\python.exe" (
     ".venv\Scripts\python.exe" "packaging\build_installer_license.py"
 ) else (
@@ -41,10 +41,10 @@ if not exist "packaging\installer_license.txt" (
     exit /b 1
 )
 
-echo Building HerbivoR-Setup-v%VER%.exe ...
-"%ISCC%" /DMyAppVersion=%VER% "packaging\HerbivoR.iss"
+echo Building Herbivora-Setup-v%VER%.exe ...
+"%ISCC%" /DMyAppVersion=%VER% "packaging\Herbivora.iss"
 if errorlevel 1 exit /b 1
 echo.
-echo Output: dist\HerbivoR-Setup-v%VER%.exe
+echo Output: dist\Herbivora-Setup-v%VER%.exe
 echo Attach this file to the GitHub Release (not the multi-GB PyInstaller bundle).
 exit /b 0

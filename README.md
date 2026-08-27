@@ -1,8 +1,8 @@
-# HerbivoR
+# Herbivora
 
-**HerbivoR** is a desktop GUI for quantifying leaf herbivory damage from photographs.
+**Herbivora** is a desktop GUI for quantifying leaf herbivory damage from photographs.
 
-**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **User guide:** [`USER_GUIDE.md`](USER_GUIDE.md) · **Repo:** [github.com/mariosandovalmx/HerbivoR](https://github.com/mariosandovalmx/HerbivoR)
+**Version:** see [`VERSION`](VERSION) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) · **User guide:** [`USER_GUIDE.md`](USER_GUIDE.md) · **Repo:** [github.com/mariosandovalmx/Herbivora](https://github.com/mariosandovalmx/Herbivora)
 
 Pipeline:
 
@@ -14,13 +14,13 @@ Pipeline:
 
 ## Quick start (recommended)
 
-1. Download from [Releases](https://github.com/mariosandovalmx/HerbivoR/releases):
-   - **Windows:** `HerbivoR-Setup-vX.Y.Z.exe` (or Source ZIP + `Install_HerbivoR.bat`)
-   - **macOS:** `HerbivoR-vX.Y.Z.dmg` (or Source ZIP + `Install_HerbivoR.command`)
-2. On macOS, open the DMG and drag the **HerbivoR leaf icon** onto **Applications**, then open the app *from Applications*. Do not launch it from inside the DMG window. On Windows, run Setup.
-   - macOS shows **"Apple could not verify HerbivoR is free of malware"** on first launch, because these builds are not signed with a paid Apple Developer ID. Click **Done**, then approve HerbivoR once under **System Settings → Privacy & Security → Open Anyway**. Full steps are in ` READ ME FIRST.txt` inside the DMG and in [USER_GUIDE.md](USER_GUIDE.md#macos).
+1. Download from [Releases](https://github.com/mariosandovalmx/Herbivora/releases):
+   - **Windows:** `Herbivora-Setup-vX.Y.Z.exe` (or Source ZIP + `Install_Herbivora.bat`)
+   - **macOS:** `Herbivora-vX.Y.Z.dmg` (or Source ZIP + `Install_Herbivora.command`)
+2. On macOS, open the DMG and drag the **Herbivora leaf icon** onto **Applications**, then open the app *from Applications*. Do not launch it from inside the DMG window. On Windows, run Setup.
+   - macOS shows **"Apple could not verify Herbivora is free of malware"** on first launch, because these builds are not signed with a paid Apple Developer ID. Click **Done**, then approve Herbivora once under **System Settings → Privacy & Security → Open Anyway**. Full steps are in ` READ ME FIRST.txt` inside the DMG and in [USER_GUIDE.md](USER_GUIDE.md#macos).
 3. Complete the first-time setup (downloads PyTorch + models automatically; GPU is auto-detected on Windows/Linux).
-4. Open **HerbivoR** from Applications / the Windows shortcut / `./herbivor.sh`.
+4. Open **Herbivora** from Applications / the Windows shortcut / `./herbivora.sh`.
 
 **Step-by-step for every OS:** **[USER_GUIDE.md](USER_GUIDE.md)** · short reference: **[INSTALL.md](INSTALL.md)**.
 
@@ -36,7 +36,7 @@ You do **not** need to install Python manually on Windows when using the recomme
 
 Model weights (~226 MB) are downloaded by the installer or **Check installation**:
 
-- HerbivoR U-Nets: [`mariosandovalmx/HerbivoR`](https://huggingface.co/mariosandovalmx/HerbivoR)
+- Herbivora U-Nets: [`mariosandovalmx/Herbivora`](https://huggingface.co/mariosandovalmx/Herbivora)
 - MobileSAM: [Ultralytics assets](https://github.com/ultralytics/assets/releases) (third-party, Apache-2.0)
 
 ---
@@ -44,14 +44,14 @@ Model weights (~226 MB) are downloaded by the installer or **Check installation*
 ## Project layout
 
 ```
-HerbivoR/
+Herbivora/
 ├── gui/                      # CustomTkinter desktop application
 ├── packaging/                # Bootstrap installer, Setup/DMG builders, optional PyInstaller
 ├── models/                   # Weights (downloaded; git-ignored)
-├── Install_HerbivoR.bat      # Windows one-click installer (recommended)
-├── Install_HerbivoR.command  # Source-install fallback for macOS/Linux
+├── Install_Herbivora.bat      # Windows one-click installer (recommended)
+├── Install_Herbivora.command  # Source-install fallback for macOS/Linux
 ├── Install_CPU.bat / Install_CUDA.bat / Install.bat   # advanced Windows
-├── install.sh / herbivor.sh
+├── install.sh / herbivora.sh
 └── USER_GUIDE.md
 ```
 
@@ -75,10 +75,10 @@ they may merge into one component. Contour and Damage models are unchanged.
 
 ## License
 
-HerbivoR **software** and **HerbivoR-trained U-Net weights** are licensed under the
+Herbivora **software** and **Herbivora-trained U-Net weights** are licensed under the
 **PolyForm Noncommercial License 1.0.0** for **noncommercial research and education**
 only. Commercial use requires prior written permission from the copyright holder.
-If you use HerbivoR (or its trained weights) in a publication or presentation, you
+If you use Herbivora (or its trained weights) in a publication or presentation, you
 must cite / credit it (see [`CITATION.cff`](CITATION.cff)).
 
 Third-party components (e.g. MobileSAM, BiRefNet) remain under their own licenses —
@@ -89,7 +89,7 @@ before install.
 
 See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
 [CITATION.cff](CITATION.cff). Model card:
-https://huggingface.co/mariosandovalmx/HerbivoR
+https://huggingface.co/mariosandovalmx/Herbivora
 
 ## Citation
 

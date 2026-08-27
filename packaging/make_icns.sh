@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build a macOS .icns file from the HerbivoR leaf artwork.
+# Build a macOS .icns file from the Herbivora leaf artwork.
 # Usage: packaging/make_icns.sh <output.icns> [source.png]
 set -euo pipefail
 
 OUT="${1:?usage: make_icns.sh <output.icns> [source.png]}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="${2:-}"
-PREBUILT="$ROOT/assets/HerbivoR.icns"
+PREBUILT="$ROOT/assets/Herbivora.icns"
 
 if [[ -z "$SRC" && -f "$PREBUILT" ]]; then
   mkdir -p "$(dirname "$OUT")"
@@ -26,7 +26,7 @@ fi
 [[ -f "$SRC" ]] || { echo "make_icns.sh: no source PNG found"; exit 1; }
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/herbivor_iconset.XXXXXX")"
-ICONSET="$WORK/HerbivoR.iconset"
+ICONSET="$WORK/Herbivora.iconset"
 mkdir -p "$ICONSET"
 
 # Apple's icon grid: every size the Finder, Dock and Launchpad ask for.

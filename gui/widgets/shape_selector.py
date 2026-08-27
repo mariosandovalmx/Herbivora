@@ -1,6 +1,6 @@
 """Leaf shape (morphology) selector for the Contour tab.
 
-Shows a row of icon buttons (smooth, elliptic, serrated, lobed) plus an
+Shows a row of icon buttons (smooth/entire, serrated, lobed, compound) plus an
 "Auto" text button. The selected shape is highlighted. When the shape changes,
 the provided callback is invoked with the morphology key.
 """
@@ -23,6 +23,86 @@ _ICON_SIZE = (40, 58)
 _SELECTED_BORDER = ("#1f6aa5", "#3b8ed0")
 
 
+class _ShapeTooltip:
+    """Single shared tooltip for all shape buttons (avoids orphan CTkToplevel windows)."""
+
+    _SHOW_DELAY_MS = 350
+
+    def __init__(self, host: ctk.CTkFrame) -> None:
+        self._host = host
+        self._win: ctk.CTkToplevel | None = None
+        self._after_id: str | None = None
+        self._pending_text = ""
+        self._pending_widget: ctk.CTkButton | None = None
+
+    def attach(self, widget: ctk.CTkButton, text: str) -> None:
+        widget.bind("<Enter>", lambda _e, t=text, w=widget: self._schedule_show(w, t), add="+")
+        widget.bind("<Leave>", self._on_leave, add="+")
+        widget.bind("<Button-1>", self._hide, add="+")
+        widget.bind("<Destroy>", self._hide, add="+")
+
+    def hide_all(self) -> None:
+        self._hide()
+
+    def _schedule_show(self, widget: ctk.CTkButton, text: str) -> None:
+        self._hide()
+        self._pending_widget = widget
+        self._pending_text = text
+        self._after_id = widget.after(self._SHOW_DELAY_MS, self._show)
+
+    def _show(self) -> None:
+        self._after_id = None
+        widget = self._pending_widget
+        text = self._pending_text
+        if widget is None or not text:
+            return
+        try:
+            if not widget.winfo_exists():
+                return
+            x = widget.winfo_rootx() + 10
+            y = widget.winfo_rooty() + widget.winfo_height() + 4
+        except Exception:
+            return
+        self._hide()
+        win = ctk.CTkToplevel(self._host)
+        win.overrideredirect(True)
+        win.transient(self._host.winfo_toplevel())
+        win.attributes("-topmost", True)
+        win.geometry(f"+{x}+{y}")
+        ctk.CTkLabel(
+            win,
+            text=text,
+            fg_color=("gray95", "gray20"),
+            corner_radius=6,
+            wraplength=220,
+            justify="left",
+            padx=8,
+            pady=4,
+        ).pack()
+        self._win = win
+
+    def _on_leave(self, _event=None) -> None:
+        self._hide()
+
+    def _hide(self, _event=None) -> None:
+        if self._after_id is not None:
+            try:
+                self._host.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+        win = self._win
+        if win is not None:
+            try:
+                win.withdraw()
+                win.destroy()
+            except Exception:
+                pass
+            self._win = None
+        self._pending_widget = None
+        self._pending_text = ""
+
+
 class ShapeSelector(ctk.CTkFrame):
     """Row of leaf-shape buttons. Tracks the selected morphology key."""
 
@@ -37,6 +117,7 @@ class ShapeSelector(ctk.CTkFrame):
         self._selected: str = "auto"
         self._buttons: dict[str, ctk.CTkButton] = {}
         self._images: dict[str, ctk.CTkImage] = {}
+        self._tooltip = _ShapeTooltip(self)
 
         for shape in MORPHOLOGY_CHOICES:
             btn = self._build_button(shape)
@@ -44,6 +125,7 @@ class ShapeSelector(ctk.CTkFrame):
             self._buttons[shape] = btn
 
         self._refresh_highlight()
+        self.bind("<Destroy>", lambda _e: self._tooltip.hide_all())
 
     def _build_button(self, shape: str) -> ctk.CTkButton:
         label = MORPHOLOGY_LABELS.get(shape, shape)
@@ -82,7 +164,7 @@ class ShapeSelector(ctk.CTkFrame):
                 command=lambda s=shape: self._select(s),
             )
         if tooltip:
-            _attach_tooltip(btn, tooltip)
+            self._tooltip.attach(btn, tooltip)
         return btn
 
     def _load_icon(self, shape: str) -> ctk.CTkImage | None:
@@ -98,6 +180,7 @@ class ShapeSelector(ctk.CTkFrame):
         return img
 
     def _select(self, shape: str) -> None:
+        self._tooltip.hide_all()
         if shape == self._selected:
             return
         self._selected = shape
@@ -125,39 +208,6 @@ class ShapeSelector(ctk.CTkFrame):
         if notify and self._on_shape_change is not None:
             self._on_shape_change(shape)
 
-
-def _attach_tooltip(widget, text: str) -> None:
-    """Lightweight hover tooltip (customtkinter has no built-in one)."""
-    tip: dict[str, ctk.CTkToplevel | None] = {"win": None}
-
-    def show(_event=None) -> None:
-        if tip["win"] is not None:
-            return
-        try:
-            x = widget.winfo_rootx() + 10
-            y = widget.winfo_rooty() + widget.winfo_height() + 4
-        except Exception:
-            return
-        win = ctk.CTkToplevel(widget)
-        win.overrideredirect(True)
-        win.attributes("-topmost", True)
-        win.geometry(f"+{x}+{y}")
-        ctk.CTkLabel(
-            win,
-            text=text,
-            fg_color=("gray95", "gray20"),
-            corner_radius=6,
-            wraplength=220,
-            justify="left",
-            padx=8,
-            pady=4,
-        ).pack()
-        tip["win"] = win
-
-    def hide(_event=None) -> None:
-        if tip["win"] is not None:
-            tip["win"].destroy()
-            tip["win"] = None
-
-    widget.bind("<Enter>", show)
-    widget.bind("<Leave>", hide)
+    def hide_tooltips(self) -> None:
+        """Call when the Contour tab is hidden to avoid ghost tooltips."""
+        self._tooltip.hide_all()

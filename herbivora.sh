@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch HerbivoR GUI (macOS / Linux)
+# Launch Herbivora GUI (macOS / Linux)
 set -euo pipefail
 cd "$(dirname "$0")"
 

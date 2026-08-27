@@ -75,7 +75,7 @@ def show_splash_toplevel(master: tk.Misc) -> SplashHandle:
 
     tk.Label(
         frame,
-        text="HerbivoR",
+        text="Herbivora",
         font=("Segoe UI", 16, "bold"),
         fg="#ecf0f1",
         bg=_BG,

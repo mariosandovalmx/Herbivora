@@ -65,8 +65,10 @@ class ImageCarousel(ctk.CTkFrame):
         self._point_click_active = False
         self._point_click_callback: Callable[[float, float], None] | None = None
         self._preview_mask: np.ndarray | None = None
+        self._preview_mask_layers: list[tuple[np.ndarray, tuple[int, int, int], float]] = []
         self._preview_mask_rgb: tuple[int, int, int] = (135, 206, 250)  # light sky blue
         self._preview_mask_alpha: float = 0.45
+        self._scale_circle_highlight: bool = False
         self._scale_circle: tuple[float, float, float] | None = None  # cx, cy, diameter (image px)
         self._image_changed_cb: Callable[[Path | None], None] | None = None
         self._source_changed_cb: Callable[[str], None] | None = None
@@ -363,15 +365,30 @@ class ImageCarousel(ctk.CTkFrame):
         alpha: float = 0.45,
     ) -> None:
         """Show a translucent color overlay for the given boolean/uint8 mask."""
+        self._preview_mask_layers = []
         self._preview_mask = None if mask is None else np.asarray(mask)
         self._preview_mask_rgb = rgb
         self._preview_mask_alpha = float(max(0.0, min(1.0, alpha)))
         self._render_image()
 
+    def set_preview_masks(
+        self,
+        masks: list[tuple[np.ndarray, tuple[int, int, int], float]],
+    ) -> None:
+        """Stack several SAM preview overlays (multi-leaf interactive)."""
+        self._preview_mask = None
+        self._preview_mask_layers = [
+            (np.asarray(m), rgb, float(max(0.0, min(1.0, alpha))))
+            for m, rgb, alpha in masks
+            if m is not None
+        ]
+        self._render_image()
+
     def clear_preview_mask(self) -> None:
-        if self._preview_mask is None:
+        if self._preview_mask is None and not self._preview_mask_layers:
             return
         self._preview_mask = None
+        self._preview_mask_layers = []
         self._render_image()
 
     def set_scale_circle(
@@ -379,8 +396,11 @@ class ImageCarousel(ctk.CTkFrame):
         cx: float | None,
         cy: float | None = None,
         diameter: float | None = None,
+        *,
+        highlight: bool = False,
     ) -> None:
         """Draw a persistent ring for the blue reference scale circle (image coords)."""
+        self._scale_circle_highlight = bool(highlight)
         if cx is None or cy is None or diameter is None or diameter <= 0:
             self._scale_circle = None
         else:
@@ -414,14 +434,21 @@ class ImageCarousel(ctk.CTkFrame):
         canvas_cx = self._pan_x + cx * scale
         canvas_cy = self._pan_y + cy * scale
         r = (diameter / 2.0) * scale
-        color = "#00bcd4"
+        if self._scale_circle_highlight:
+            color = "#FF5722"
+            width = 4
+            fill = "#FF5722"
+        else:
+            color = "#00bcd4"
+            width = 2
+            fill = color
         self._canvas.create_oval(
             canvas_cx - r,
             canvas_cy - r,
             canvas_cx + r,
             canvas_cy + r,
             outline=color,
-            width=2,
+            width=width,
             tags="scale_circle",
         )
         self._canvas.create_line(
@@ -429,8 +456,8 @@ class ImageCarousel(ctk.CTkFrame):
             canvas_cy,
             canvas_cx + 5,
             canvas_cy,
-            fill=color,
-            width=1,
+            fill=fill,
+            width=2 if self._scale_circle_highlight else 1,
             tags="scale_circle",
         )
         self._canvas.create_line(
@@ -438,8 +465,8 @@ class ImageCarousel(ctk.CTkFrame):
             canvas_cy - 5,
             canvas_cx,
             canvas_cy + 5,
-            fill=color,
-            width=1,
+            fill=fill,
+            width=2 if self._scale_circle_highlight else 1,
             tags="scale_circle",
         )
         self._canvas.tag_raise("scale_circle")
@@ -447,23 +474,29 @@ class ImageCarousel(ctk.CTkFrame):
     def _composited_display_pil(self) -> Image.Image | None:
         if self._pil_original is None:
             return None
-        if self._preview_mask is None:
+        layers: list[tuple[np.ndarray, tuple[int, int, int], float]] = []
+        if self._preview_mask is not None:
+            layers.append(
+                (self._preview_mask, self._preview_mask_rgb, self._preview_mask_alpha)
+            )
+        layers.extend(self._preview_mask_layers)
+        if not layers:
             return self._pil_original
         base = np.asarray(self._pil_original.convert("RGB"), dtype=np.float32)
         h, w = base.shape[:2]
-        mask = self._preview_mask
-        if mask.shape[:2] != (h, w):
-            mask_u8 = (mask.astype(np.uint8) * 255) if mask.dtype == bool else mask.astype(np.uint8)
-            mask_u8 = cv2.resize(mask_u8, (w, h), interpolation=cv2.INTER_NEAREST)
-            mask_bool = mask_u8 > 127
-        else:
-            mask_bool = mask.astype(bool) if mask.dtype != bool else mask
-        if not np.any(mask_bool):
-            return self._pil_original
-        color = np.array(self._preview_mask_rgb, dtype=np.float32)
-        a = self._preview_mask_alpha
         out = base.copy()
-        out[mask_bool] = (1.0 - a) * out[mask_bool] + a * color
+        for mask, rgb, alpha in layers:
+            if mask.shape[:2] != (h, w):
+                mask_u8 = (mask.astype(np.uint8) * 255) if mask.dtype == bool else mask.astype(np.uint8)
+                mask_u8 = cv2.resize(mask_u8, (w, h), interpolation=cv2.INTER_NEAREST)
+                mask_bool = mask_u8 > 127
+            else:
+                mask_bool = mask.astype(bool) if mask.dtype != bool else mask
+            if not np.any(mask_bool):
+                continue
+            color = np.array(rgb, dtype=np.float32)
+            a = alpha
+            out[mask_bool] = (1.0 - a) * out[mask_bool] + a * color
         return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 
     def _on_mode_change(self, value: str) -> None:

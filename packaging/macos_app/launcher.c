@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 /*
- * Tiny universal entry point for HerbivoR.app.
+ * Tiny universal entry point for Herbivora.app.
  *
  * A shell script used directly as CFBundleExecutable makes Finder treat the
  * bundle as a script-only/generic app and can make Apple-silicon macOS launch
@@ -16,11 +16,11 @@ int main(void) {
     char executable[PATH_MAX];
     uint32_t size = sizeof(executable);
     if (_NSGetExecutablePath(executable, &size) != 0) {
-        fputs("HerbivoR: executable path is too long\n", stderr);
+        fputs("Herbivora: executable path is too long\n", stderr);
         return 1;
     }
 
-    char *slash = strrchr(executable, '/'); /* .../MacOS/HerbivoR */
+    char *slash = strrchr(executable, '/'); /* .../MacOS/Herbivora */
     if (slash == NULL) {
         return 1;
     }
@@ -39,11 +39,11 @@ int main(void) {
         executable
     );
     if (written < 0 || (size_t)written >= sizeof(launcher)) {
-        fputs("HerbivoR: launcher path is too long\n", stderr);
+        fputs("Herbivora: launcher path is too long\n", stderr);
         return 1;
     }
 
     execl("/bin/bash", "bash", launcher, (char *)NULL);
-    perror("HerbivoR: could not start launcher");
+    perror("Herbivora: could not start launcher");
     return 1;
 }

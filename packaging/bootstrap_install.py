@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HerbivoR one-click bootstrap installer.
+"""Herbivora one-click bootstrap installer.
 
 Installs a private Python (Windows), creates .venv, installs PyTorch
 (auto CPU/CUDA/MPS), app dependencies, model weights, and shortcuts.
@@ -45,7 +45,7 @@ WIN_PYTHON_INSTALLER = (
 LogFn = Callable[[str], None]
 
 LICENSE_ACCEPT_PROMPT = (
-    "I have read and agree to the HerbivoR License "
+    "I have read and agree to the Herbivora License "
     "(PolyForm Noncommercial 1.0.0), Required Notices, "
     "and Third-Party Notices. Commercial use requires prior written permission."
 )
@@ -91,7 +91,7 @@ def load_installer_license_text(root: Path) -> str:
         parts.append(third.read_text(encoding="utf-8"))
     if not parts:
         return (
-            "HerbivoR — PolyForm Noncommercial License 1.0.0\n"
+            "Herbivora — PolyForm Noncommercial License 1.0.0\n"
             "Noncommercial research/education only. Commercial use requires "
             "prior written permission. See LICENSE in the project repository."
         )
@@ -102,7 +102,7 @@ def prompt_console_license_acceptance(root: Path) -> bool:
     """Show license summary and require explicit agreement on a TTY."""
     text = load_installer_license_text(root)
     print("=" * 60)
-    print("HerbivoR — License agreement (required)")
+    print("Herbivora — License agreement (required)")
     print("=" * 60)
     # Show enough of the full text without flooding the entire terminal.
     preview = text if len(text) <= 12000 else text[:12000] + "\n\n[... truncated; full text in LICENSE / THIRD_PARTY_NOTICES.md ...]\n"
@@ -205,7 +205,7 @@ def _python_version_ok(exe: Path | str) -> bool:
 
 def windows_private_python_dir() -> Path:
     local = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-    return Path(local) / "HerbivoR" / "Python"
+    return Path(local) / "Herbivora" / "Python"
 
 
 def _configure_tcl_tk_env_for_prefix(base: Path) -> bool:
@@ -224,7 +224,7 @@ def _configure_tcl_tk_env_for_prefix(base: Path) -> bool:
 
 
 def _tkinter_usable(exe: Path | str) -> bool:
-    """True if this interpreter can create a Tk root (needed for HerbivoR GUI)."""
+    """True if this interpreter can create a Tk root (needed for Herbivora GUI)."""
     code = (
         "import os, sys\n"
         "from pathlib import Path\n"
@@ -364,7 +364,7 @@ def _install_windows_private_python(log: LogFn) -> Path:
     if not _tkinter_usable(private):
         raise RuntimeError(
             f"Private Python at {private} was installed but tkinter/Tcl-Tk is not usable. "
-            "Re-run Install_HerbivoR.bat with an internet connection."
+            "Re-run Install_Herbivora.bat with an internet connection."
         )
     log(f"Private Python ready: {private}")
     return private
@@ -372,7 +372,7 @@ def _install_windows_private_python(log: LogFn) -> Path:
 
 def ensure_base_python(log: LogFn) -> Path:
     """Return a usable Python 3.10+ with working tkinter (private copy on Windows if needed)."""
-    # Prefer an already-installed private HerbivoR Python on Windows.
+    # Prefer an already-installed private Herbivora Python on Windows.
     if platform.system() == "Windows":
         private = windows_private_python_dir() / "python.exe"
         if private.is_file() and _python_version_ok(private) and _tkinter_usable(private):
@@ -455,7 +455,7 @@ def ensure_venv(base_python: Path, root: Path, log: LogFn) -> Path:
     if not _tkinter_usable(py):
         raise RuntimeError(
             "Virtual environment was created but tkinter/Tcl-Tk still fails. "
-            "On Windows, delete .venv and re-run Install_HerbivoR.bat so a private "
+            "On Windows, delete .venv and re-run Install_Herbivora.bat so a private "
             "Python with Tcl/Tk can be installed."
         )
     return py
@@ -510,7 +510,7 @@ def install_torch(py: Path, flavor: str, log: LogFn) -> None:
             log("PyTorch Metal/MPS installation failed.")
             log("If pip reports 'from versions: none', it usually could not reach PyPI")
             log("or no wheel matched the selected Python and native architecture.")
-            log("Check the internet connection and reopen HerbivoR to retry.")
+            log("Check the internet connection and reopen Herbivora to retry.")
         raise
 
 
@@ -518,7 +518,7 @@ def install_requirements(py: Path, root: Path, log: LogFn) -> None:
     req = root / "requirements.txt"
     if not req.is_file():
         raise RuntimeError(f"Missing {req}")
-    log("Installing HerbivoR packages from requirements.txt …")
+    log("Installing Herbivora packages from requirements.txt …")
     _run([str(py), "-m", "pip", "install", "-r", str(req)], log, cwd=root)
 
 
@@ -565,8 +565,8 @@ def create_shortcuts(root: Path, log: LogFn) -> None:
             try:
                 _run(["bash", str(sh)], log, cwd=root)
             except RuntimeError as exc:
-                log(f"WARNING: could not create HerbivoR.app: {exc}")
-                log("You can still run: ./herbivor.sh")
+                log(f"WARNING: could not create Herbivora.app: {exc}")
+                log("You can still run: ./herbivora.sh")
         return
 
 
@@ -595,11 +595,11 @@ def run_install(
     root = root.resolve()
     if not (root / "gui" / "main.py").is_file():
         raise RuntimeError(
-            f"Does not look like a HerbivoR source tree: {root}\n"
+            f"Does not look like a Herbivora source tree: {root}\n"
             "Extract the Release ZIP or clone the repository, then run the installer from that folder."
         )
 
-    log(f"HerbivoR version: {read_version(root)}")
+    log(f"Herbivora version: {read_version(root)}")
     flavor, note = detect_torch_flavor(flavor_arg)
     log(note)
     log(f"Install root: {root}")
@@ -619,11 +619,11 @@ def run_install(
     log(f"  Installation completed  [{flavor}]")
     log("=" * 44)
     if platform.system() == "Windows":
-        log("Open HerbivoR with: HerbivoR.lnk  (or HerbivoR.bat)")
+        log("Open Herbivora with: Herbivora.lnk  (or Herbivora.bat)")
     elif platform.system() == "Darwin":
-        log("Open HerbivoR with: HerbivoR.app  (or ./herbivor.sh)")
+        log("Open Herbivora with: Herbivora.app  (or ./herbivora.sh)")
     else:
-        log("Open HerbivoR with: ./herbivor.sh")
+        log("Open Herbivora with: ./herbivora.sh")
     return flavor
 
 
@@ -635,14 +635,14 @@ def _run_gui(root: Path, flavor_arg: str, *, app_mode: bool = False) -> int:
     version = read_version(root)
 
     win = tk.Tk()
-    win.title(f"HerbivoR Installer {version}")
+    win.title(f"Herbivora Installer {version}")
     win.geometry("780x620")
     win.minsize(640, 480)
 
     frm = ttk.Frame(win, padding=12)
     frm.pack(fill="both", expand=True)
 
-    heading = "HerbivoR first-time setup" if app_mode else "HerbivoR setup"
+    heading = "Herbivora first-time setup" if app_mode else "Herbivora setup"
     ttk.Label(
         frm, text=f"{heading} (version {version})", font=("Segoe UI", 14, "bold")
     ).pack(anchor="w")
@@ -732,12 +732,12 @@ def _run_gui(root: Path, flavor_arg: str, *, app_mode: bool = False) -> int:
                 status.configure(text="Installation completed.")
                 start_btn.configure(state="normal")
                 next_step = (
-                    "Close this setup window; HerbivoR will open automatically."
+                    "Close this setup window; Herbivora will open automatically."
                     if app_mode
-                    else "Use the HerbivoR shortcut (leaf icon) to open the app."
+                    else "Use the Herbivora shortcut (leaf icon) to open the app."
                 )
                 messagebox.showinfo(
-                    "HerbivoR",
+                    "Herbivora",
                     "Installation completed.\n\n"
                     + next_step
                     + "\n\nLicense files remain in the install folder:\n"
@@ -752,7 +752,7 @@ def _run_gui(root: Path, flavor_arg: str, *, app_mode: bool = False) -> int:
                 bar.stop()
                 status.configure(text="Installation failed.")
                 start_btn.configure(state="normal")
-                messagebox.showerror("HerbivoR installer", error_message)
+                messagebox.showerror("Herbivora installer", error_message)
 
             append_log(f"ERROR: {error_message}")
             win.after(0, _err)
@@ -761,7 +761,7 @@ def _run_gui(root: Path, flavor_arg: str, *, app_mode: bool = False) -> int:
         if not agree_var.get():
             messagebox.showwarning(
                 "License required",
-                "You must accept the HerbivoR license and third-party notices "
+                "You must accept the Herbivora license and third-party notices "
                 "before installing.",
             )
             return
@@ -777,12 +777,12 @@ def _run_gui(root: Path, flavor_arg: str, *, app_mode: bool = False) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="HerbivoR bootstrap installer")
+    parser = argparse.ArgumentParser(description="Herbivora bootstrap installer")
     parser.add_argument(
         "--root",
         type=Path,
         default=REPO_ROOT,
-        help="HerbivoR source tree (default: repository root)",
+        help="Herbivora source tree (default: repository root)",
     )
     parser.add_argument(
         "--flavor",
@@ -794,7 +794,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--app-mode",
         action="store_true",
-        help="Run first-launch setup from HerbivoR.app without creating another app shortcut",
+        help="Run first-launch setup from Herbivora.app without creating another app shortcut",
     )
     parser.add_argument(
         "--yes",
@@ -810,11 +810,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.yes:
         _default_log(
-            "Proceeding under HerbivoR LICENSE + THIRD_PARTY_NOTICES.md "
+            "Proceeding under Herbivora LICENSE + THIRD_PARTY_NOTICES.md "
             "(non-interactive / already accepted via Setup)."
         )
     elif sys.stdin.isatty():
-        print("HerbivoR bootstrap installer")
+        print("Herbivora bootstrap installer")
         print(f"Root: {args.root.resolve()}")
         if not prompt_console_license_acceptance(args.root):
             print("License not accepted — install cancelled.")

@@ -1,4 +1,4 @@
-"""Build professional HerbivoR icon assets from the approved source artwork.
+"""Build professional Herbivora icon assets from the approved source artwork.
 
 Removes only the light margin connected to the image corners (outer white
 border). The white fill of the leaf is preserved because it is enclosed by
@@ -103,7 +103,7 @@ def main() -> None:
     out_icon = ROOT / "herbivor_icon.png"
     out_256 = ROOT / "herbivor_256.png"
     out_ico = ROOT / "herbivor.ico"
-    out_icns = ROOT / "HerbivoR.icns"
+    out_icns = ROOT / "Herbivora.icns"
     master.save(out_icon, optimize=True)
     master.resize((256, 256), Image.Resampling.LANCZOS).save(out_256, optimize=True)
     master.save(out_icns, format="ICNS")

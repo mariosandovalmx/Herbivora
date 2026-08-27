@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Download HerbivoR model weights into ./models/.
+"""Download Herbivora model weights into ./models/.
 
-HerbivoR-trained U-Nets come from Hugging Face Hub.
+Herbivora-trained U-Nets come from Hugging Face Hub.
 MobileSAM is fetched from the official Ultralytics assets release (Apache-2.0),
-not re-hosted in the HerbivoR Hub repo.
+not re-hosted in the Herbivora Hub repo.
 
 Usage:
     python download_models.py
-    python download_models.py --repo mariosandovalmx/HerbivoR
+    python download_models.py --repo mariosandovalmx/Herbivora
 """
 
 from __future__ import annotations
@@ -35,15 +35,19 @@ REPO_ROOT = (
     else Path(__file__).resolve().parent
 )
 MODELS_DIR = _default_models_dir()
-DEFAULT_REPO = "mariosandovalmx/HerbivoR"
+DEFAULT_REPO = "mariosandovalmx/Herbivora"
 
-# Weights trained / packaged for HerbivoR (hosted on the Hub).
+# Weights trained / packaged for Herbivora (hosted on the Hub).
 HERBIVOR_FILES = (
     "best_unet_shape.pth",
     "best_model.pth",
+    "best_unet_shape_smooth.pth",
+    "best_unet_shape_serrated.pth",
+    "best_unet_shape_lobed.pth",
+    "best_unet_shape_compound.pth",
 )
 
-# Third-party MobileSAM weights (do not re-upload to HerbivoR Hub).
+# Third-party MobileSAM weights (do not re-upload to Herbivora Hub).
 MOBILESAM_NAME = "mobile_sam.pt"
 MOBILESAM_URL = (
     "https://github.com/ultralytics/assets/releases/download/v8.4.0/mobile_sam.pt"
@@ -56,7 +60,7 @@ def ssl_context() -> ssl.SSLContext:
     """Verified TLS context using certifi when Python has no system CA file.
 
     The python.org macOS builds can report ``cafile=None`` until their separate
-    certificate installer has been run. HerbivoR already depends on certifi via
+    certificate installer has been run. Herbivora already depends on certifi via
     its HTTP packages, so use that maintained CA bundle without weakening TLS.
     """
     try:
@@ -121,7 +125,7 @@ def download_url(url: str, dest: Path) -> None:
     """Download ``url`` to ``dest`` (atomic replace via temp file)."""
     tmp = dest.with_suffix(dest.suffix + ".part")
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "HerbivoR model downloader"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Herbivora model downloader"})
         with urllib.request.urlopen(req, timeout=120, context=ssl_context()) as response:
             with tmp.open("wb") as output:
                 shutil.copyfileobj(response, output)
@@ -226,7 +230,7 @@ def ensure_models(
     force: bool = False,
     log: LogFn | None = None,
 ) -> EnsureModelsResult:
-    """Ensure MobileSAM + HerbivoR U-Nets exist under ``models_dir``.
+    """Ensure MobileSAM + Herbivora U-Nets exist under ``models_dir``.
 
     Skips files that are already present and match the remote size (unless
     ``force``). Safe to call from the GUI or CLI.
@@ -253,7 +257,7 @@ def ensure_models(
         log=log,
     )
 
-    _emit(log, result, f"Downloading HerbivoR models from {repo} -> {out}")
+    _emit(log, result, f"Downloading Herbivora models from {repo} -> {out}")
     for name in HERBIVOR_FILES:
         _ensure_one_hub(
             name=name,
@@ -276,11 +280,11 @@ def ensure_models(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Download HerbivoR model weights")
+    parser = argparse.ArgumentParser(description="Download Herbivora model weights")
     parser.add_argument(
         "--repo",
         default=DEFAULT_REPO,
-        help=f"Hugging Face model repo id for HerbivoR U-Nets (default: {DEFAULT_REPO})",
+        help=f"Hugging Face model repo id for Herbivora U-Nets (default: {DEFAULT_REPO})",
     )
     parser.add_argument(
         "--force",

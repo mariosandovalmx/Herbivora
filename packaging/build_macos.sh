@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build HerbivoR.app on macOS (must run on a Mac; cannot cross-compile from Windows).
+# Build Herbivora.app on macOS (must run on a Mac; cannot cross-compile from Windows).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -11,12 +11,12 @@ fi
 
 VER="$(tr -d '[:space:]' < VERSION || echo 0.0.0)"
 
-echo "[HerbivoR] Installing packaging deps..."
+echo "[Herbivora] Installing packaging deps..."
 "$PY" -m pip install -r requirements-dev.txt
 
-echo "[HerbivoR] Building PyInstaller onedir / .app..."
+echo "[Herbivora] Building PyInstaller onedir / .app..."
 "$PY" -m PyInstaller --noconfirm --clean --windowed \
-  --name HerbivoR \
+  --name Herbivora \
   --paths "$ROOT" \
   --add-data "contour/configs:contour/configs" \
   --add-data "segmentation/birefnet_mobilesam/config.yaml:segmentation/birefnet_mobilesam" \
@@ -24,16 +24,16 @@ echo "[HerbivoR] Building PyInstaller onedir / .app..."
   --add-data "models/README.md:models" \
   packaging/herbivor_entry.py
 
-ZIP="dist/HerbivoR-macos-v${VER}.zip"
+ZIP="dist/Herbivora-macos-v${VER}.zip"
 rm -f "$ZIP"
 (
   cd dist
-  if [[ -d HerbivoR.app ]]; then
-    zip -r "../$ZIP" HerbivoR.app
+  if [[ -d Herbivora.app ]]; then
+    zip -r "../$ZIP" Herbivora.app
   else
-    zip -r "../$ZIP" HerbivoR
+    zip -r "../$ZIP" Herbivora
   fi
 )
 
-echo "[HerbivoR] Done: $ROOT/$ZIP"
-echo "Copy to another Mac, extract, open HerbivoR, then use Check installation for models."
+echo "[Herbivora] Done: $ROOT/$ZIP"
+echo "Copy to another Mac, extract, open Herbivora, then use Check installation for models."

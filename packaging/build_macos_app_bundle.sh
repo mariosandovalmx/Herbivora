@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build the distributable HerbivoR.app (macOS).
+# Build the distributable Herbivora.app (macOS).
 #
-# The bundle carries the whole HerbivoR source tree in Contents/Resources/payload
-# and a launcher that installs into ~/Library/Application Support/HerbivoR on
+# The bundle carries the whole Herbivora source tree in Contents/Resources/payload
+# and a launcher that installs into ~/Library/Application Support/Herbivora on
 # first run. Users drag this app into /Applications; no Terminal, no .command.
 #
 #   packaging/build_macos_app_bundle.sh [output_dir]      # default: dist/
@@ -22,10 +22,10 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 OUT_DIR="${1:-$ROOT/dist}"
-APP="$OUT_DIR/HerbivoR.app"
+APP="$OUT_DIR/Herbivora.app"
 VER="$(tr -d '[:space:]' < VERSION || echo 0.0.0)"
 
-echo "[HerbivoR] Building HerbivoR.app v$VER"
+echo "[Herbivora] Building Herbivora.app v$VER"
 mkdir -p "$OUT_DIR"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/payload"
@@ -47,7 +47,7 @@ rsync -a \
   --exclude 'models/*.safetensors' \
   --exclude '*.lnk' \
   --exclude 'gui_error.log' \
-  --exclude 'HerbivoR.app' \
+  --exclude 'Herbivora.app' \
   "$ROOT/" "$APP/Contents/Resources/payload/"
 
 # Full agreement text, generated directly inside the payload so a package build
@@ -66,7 +66,7 @@ bash "$ROOT/packaging/make_icns.sh" "$APP/Contents/Resources/AppIcon.icns"
 # Build a true universal executable so Finder recognizes this as a native app
 # and Apple-silicon Macs do not classify the script launcher as Intel-only.
 command -v clang >/dev/null 2>&1 || {
-  echo "[HerbivoR] ERROR: clang/Xcode Command Line Tools are required."
+  echo "[Herbivora] ERROR: clang/Xcode Command Line Tools are required."
   exit 1
 }
 clang \
@@ -75,21 +75,21 @@ clang \
   -mmacosx-version-min=11.0 \
   -Os \
   "$ROOT/packaging/macos_app/launcher.c" \
-  -o "$APP/Contents/MacOS/HerbivoR"
+  -o "$APP/Contents/MacOS/Herbivora"
 cp "$ROOT/packaging/macos_app/launcher.sh" "$APP/Contents/Resources/launcher.sh"
-chmod +x "$APP/Contents/MacOS/HerbivoR" "$APP/Contents/Resources/launcher.sh"
+chmod +x "$APP/Contents/MacOS/Herbivora" "$APP/Contents/Resources/launcher.sh"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>HerbivoR</string>
-  <key>CFBundleDisplayName</key><string>HerbivoR</string>
+  <key>CFBundleName</key><string>Herbivora</string>
+  <key>CFBundleDisplayName</key><string>Herbivora</string>
   <key>CFBundleIdentifier</key><string>mx.mariosandoval.herbivor</string>
   <key>CFBundleVersion</key><string>$VER</string>
   <key>CFBundleShortVersionString</key><string>$VER</string>
-  <key>CFBundleExecutable</key><string>HerbivoR</string>
+  <key>CFBundleExecutable</key><string>Herbivora</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleSignature</key><string>????</string>
@@ -104,7 +104,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <string>x86_64</string>
   </array>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSHumanReadableCopyright</key><string>HerbivoR — PolyForm Noncommercial License 1.0.0</string>
+  <key>NSHumanReadableCopyright</key><string>Herbivora — PolyForm Noncommercial License 1.0.0</string>
 </dict>
 </plist>
 EOF
@@ -124,16 +124,16 @@ else
 fi
 if codesign "${SIGN_ARGS[@]}" "$APP" 2>&1; then
   if [[ "$IDENTITY" == "-" ]]; then
-    echo "[HerbivoR] Ad-hoc signed (unsigned distribution: users must approve once in"
+    echo "[Herbivora] Ad-hoc signed (unsigned distribution: users must approve once in"
     echo "           System Settings > Privacy & Security)."
   else
-    echo "[HerbivoR] Signed with: $IDENTITY"
+    echo "[Herbivora] Signed with: $IDENTITY"
   fi
 else
-  echo "[HerbivoR] WARNING: codesign failed; shipping an unsigned bundle."
+  echo "[Herbivora] WARNING: codesign failed; shipping an unsigned bundle."
 fi
 
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 SIZE="$(du -sh "$APP" | cut -f1)"
-echo "[HerbivoR] Created $APP ($SIZE)"
+echo "[Herbivora] Created $APP ($SIZE)"

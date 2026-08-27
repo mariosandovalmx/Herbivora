@@ -1,4 +1,4 @@
-"""Main HerbivoR GUI Window."""
+"""Main Herbivora GUI Window."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from gui.widgets.log_panel import LogPanel
 from gui.widgets.split_pane import MainSplitPane
 
 
-class HerbivoRApp(ctk.CTk):
+class HerbivoraApp(ctk.CTk):
     def __init__(self) -> None:
         # Theme must be set before the CTk window is constructed; otherwise the
         # root keeps the default palette and then visibly recolors (icon can drop).
@@ -32,7 +32,7 @@ class HerbivoRApp(ctk.CTk):
         ctk.set_default_color_theme("green")
 
         super().__init__()
-        self.title("HerbivoR — Leaf Damage Analysis")
+        self.title("Herbivora — Leaf Damage Analysis")
         self.geometry("1320x820")
         self.minsize(1000, 700)
 
@@ -76,7 +76,7 @@ class HerbivoRApp(ctk.CTk):
                 )
             ctk.CTkLabel(
                 top_bar,
-                text="HerbivoR",
+                text="Herbivora",
                 font=ctk.CTkFont(size=14, weight="bold"),
             ).pack(side="left")
 
@@ -144,8 +144,31 @@ class HerbivoRApp(ctk.CTk):
             build_splash.close()
 
         self.lift()
-        # After CustomTkinter finishes its first show/titlebar pass in mainloop.
-        self.after(0, lambda: self.state("zoomed"))
+        self.update_idletasks()
+        self.after_idle(self._refresh_tab_layout)
+        # Defer maximize until CTkTabview has a stable geometry (avoids clipped tab bar).
+        self.after(120, self._apply_window_zoom)
+
+    def _apply_window_zoom(self) -> None:
+        try:
+            self.state("zoomed")
+        except Exception:
+            pass
+        self.update_idletasks()
+        self.after_idle(self._refresh_tab_layout)
+
+    def _refresh_tab_layout(self) -> None:
+        """Force CTkTabview / left panel to recalculate after splash or resize."""
+        try:
+            self.update_idletasks()
+            lw_w = self._left_wrap.winfo_width()
+            seg = getattr(self._tabs, "_segmented_button", None)
+            seg_w = seg.winfo_width() if seg is not None else -1
+            if seg is not None and seg_w < 200 and lw_w > 200:
+                seg.update_idletasks()
+                self._tabs.update_idletasks()
+        except Exception:
+            pass
 
     def _toggle_log(self) -> None:
         visible = self._main_split.toggle_log()
@@ -275,6 +298,8 @@ class HerbivoRApp(ctk.CTk):
         self._update_tab_access()
         if hasattr(self._segment_tab, "_refresh_multi_leaf_badge"):
             self._segment_tab._refresh_multi_leaf_badge()
+        if hasattr(self._segment_tab, "_apply_multi_leaf_method_lock"):
+            self._segment_tab._apply_multi_leaf_method_lock()
 
     def _on_skip_segmentation_changed(self, *, run_prep: bool = False) -> None:
         self._update_tab_access()
@@ -312,6 +337,12 @@ class HerbivoRApp(ctk.CTk):
 
     def _on_tab_changed(self) -> None:
         tab_name = self._tabs.get()
+        # Hide contour tooltips when leaving that tab (prevents ghost CTkToplevel on Windows).
+        if tab_name != "3. Contour / ROI":
+            try:
+                self._contour_tab._shape_selector.hide_tooltips()
+            except Exception:
+                pass
         if tab_name == "2. Segmentation" and self._state.skip_segmentation:
             self._tabs.set("3. Contour / ROI")
             tab_name = "3. Contour / ROI"
@@ -324,6 +355,7 @@ class HerbivoRApp(ctk.CTk):
         elif tab_name == "4. Analysis":
             self._analyze_tab.load_from_state()
         self._refresh_carousel_for_tab(tab_name)
+        self.after_idle(self._refresh_tab_layout)
 
     def _refresh_carousel_for_tab(self, tab_name: str) -> None:
         if tab_name == "1. Project":
@@ -394,28 +426,44 @@ class HerbivoRApp(ctk.CTk):
         self._job_panel_start("segment")
         self._set_status("Interactive finalize (BiRefNet)...", "#1f6aa5")
         n = session.n_selected
+        multi = bool(self._state.multi_leaf_photos)
 
         def work(log, should_cancel) -> None:
             out_dir = kwargs["output_dir"]
             log(f"Finalizing {n} interactive selection(s) with BiRefNet (models kept in RAM)...")
-            ok, failed = session.finalize_batch(
-                out_dir,
-                known_diameter_mm=kwargs["known_diameter_mm"],
-                hybrid_mode=kwargs["hybrid_mode"],
-                seg_resolution=kwargs["seg_resolution"],
-                output_size=kwargs["output_size"],
-                agreement_threshold=kwargs["agreement_threshold"],
-                remove_blue=kwargs["remove_blue"],
-                project_root=kwargs.get("project_root"),
-                log=log,
-                should_cancel=should_cancel,
-            )
+            if multi:
+                ok, failed = session.finalize_multi_batch(
+                    out_dir,
+                    known_diameter_mm=kwargs["known_diameter_mm"],
+                    hybrid_mode=kwargs["hybrid_mode"],
+                    seg_resolution=kwargs["seg_resolution"],
+                    output_size=kwargs["output_size"],
+                    agreement_threshold=kwargs["agreement_threshold"],
+                    remove_blue=kwargs["remove_blue"],
+                    project_root=kwargs.get("project_root"),
+                    log=log,
+                    should_cancel=should_cancel,
+                )
+            else:
+                ok, failed = session.finalize_batch(
+                    out_dir,
+                    known_diameter_mm=kwargs["known_diameter_mm"],
+                    hybrid_mode=kwargs["hybrid_mode"],
+                    seg_resolution=kwargs["seg_resolution"],
+                    output_size=kwargs["output_size"],
+                    agreement_threshold=kwargs["agreement_threshold"],
+                    remove_blue=kwargs["remove_blue"],
+                    project_root=kwargs.get("project_root"),
+                    log=log,
+                    should_cancel=should_cancel,
+                )
             if failed and not ok:
                 raise RuntimeError(f"All {failed} interactive finalizations failed.")
 
+        leaf_word = "leaf" if multi else "photo"
         self._runner.run_callable(
             work,
-            title=f"Interactive segmentation finalize ({n} photo(s))",
+            title=f"Interactive segmentation finalize ({n} {leaf_word}(s))",
         )
 
     def _run_birefnet_inprocess(
@@ -673,16 +721,27 @@ class HerbivoRApp(ctk.CTk):
         if not self._segment_tab._validate():
             return
         method = self._state.validate_segmentation_method()
-        # Multi-leaf mode only supports Method A
-        if self._state.multi_leaf_photos and method != "birefnet_mobilesam":
-            messagebox.showinfo(
-                "Multiple leaves per photo",
-                "Multi-leaf mode requires BiRefNet + MobileSAM (method A).\n\n"
-                "Switching to method A for this run.",
-            )
-            self._state.segmentation_method = "birefnet_mobilesam"
-            self._segment_tab.load_from_state()
-            method = "birefnet_mobilesam"
+        if self._state.multi_leaf_photos:
+            if method != "interactive_mobilesam":
+                messagebox.showinfo(
+                    "Multiple leaves per photo",
+                    "Multi-leaf mode requires Interactive segmentation (method C).\n\n"
+                    "Click each leaf on every photo, then run segmentation.",
+                )
+                self._state.segmentation_method = "interactive_mobilesam"
+                self._segment_tab.load_from_state()
+                return
+            from gui.interactive_sam_session import get_session
+
+            if get_session().n_selected == 0:
+                messagebox.showinfo(
+                    "No selections",
+                    "Multi-leaf mode: click each separated leaf on every photo first, "
+                    "then run segmentation.",
+                )
+                return
+            self._run_interactive_finalize()
+            return
         if method == "birefnet_mobilesam":
             self._run_birefnet_inprocess(
                 chain_contour=chain_contour,

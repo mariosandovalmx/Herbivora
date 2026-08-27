@@ -1,4 +1,4 @@
-"""Central image format definitions and robust loading for HerbivoR."""
+"""Central image format definitions and robust loading for Herbivora."""
 
 from __future__ import annotations
 

@@ -275,29 +275,40 @@ def build_recon_unet_shape_args(state: ProjectState) -> list[str]:
     out_root = state.output_path()
     if out_root is None:
         return []
-    from gui.paths import DEFAULT_UNET_SHAPE_MODEL, DEFAULT_UNET_SHAPE_CONFIG
+    from gui.paths import (
+        DEFAULT_UNET_SHAPE_CONFIG,
+        MORPHOLOGY_CHOICES,
+        MORPHOLOGY_LABELS,
+        resolve_unet_shape_for_state,
+    )
     args = [
         "--input", str(white_bg_dir(out_root)),
         "--output", str(leaf_roi_preview_dir(out_root)),
         "--device", getattr(state, "recon_device", "cpu"),
     ]
-    ckpt = getattr(state, "recon_model_unet_shape", "").strip().strip("\"'")
-    if not ckpt:
-        ckpt = getattr(state, "leaf_model", "").strip().strip("\"'")
     cfg = getattr(state, "recon_unet_shape_config", "").strip().strip("\"'")
-    p_ckpt = Path(ckpt) if ckpt else DEFAULT_UNET_SHAPE_MODEL
     p_cfg = Path(cfg) if cfg else DEFAULT_UNET_SHAPE_CONFIG
+    morph = getattr(state, "contour_morphology", "auto") or "auto"
+    if morph not in MORPHOLOGY_CHOICES:
+        morph = "auto"
+    p_ckpt = resolve_unet_shape_for_state(state)
     if p_ckpt.is_file():
         args.extend(["--checkpoint", str(p_ckpt)])
     if p_cfg.is_file():
         args.extend(["--config", str(p_cfg)])
+    args.extend(["--morphology", morph])
     return args
 
 
 def build_contour_step(state: ProjectState, filename: str | None = None) -> tuple[str, Path, list[str]]:
     """Returns (title, script, args) for the Contour UNET Shape step."""
+    from gui.paths import MORPHOLOGY_LABELS, resolve_unet_shape_for_state
+
+    morph = getattr(state, "contour_morphology", "auto") or "auto"
+    ckpt = resolve_unet_shape_for_state(state)
+    label = MORPHOLOGY_LABELS.get(morph, morph)
     step = (
-        "UNET Shape (Mask-to-Mask 512px)",
+        f"UNET Shape ({label} → {ckpt.name})",
         script_path("contour/inference/gui_batch.py"),
         build_recon_unet_shape_args(state),
     )
@@ -555,6 +566,8 @@ def build_analyze_args(state: ProjectState) -> list[str]:
     elif state.white_hole_brightness != 235:
         # Soft hint for AUTO mode (tissue seed blend).
         args.extend(["--white-hole-brightness", str(state.white_hole_brightness)])
+    if not state.superficial_damage:
+        args.append("--no-superficial-damage")
     # Scale file only when Project checkbox is on (else damage % only).
     if state.remove_blue:
         json_p = scale_json_path(out_root)

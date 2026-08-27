@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Create a minimal HerbivoR.app that launches herbivor.sh with the leaf icon (macOS).
+# Create a minimal Herbivora.app that launches herbivora.sh with the leaf icon (macOS).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/HerbivoR.app"
+APP="$ROOT/Herbivora.app"
 PNG="$ROOT/assets/herbivor_256.png"
 ICON_SRC="$ROOT/assets/herbivor_icon.png"
 VER="$(tr -d '[:space:]' < "$ROOT/VERSION" || echo 0.0.0)"
@@ -17,7 +17,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 # Build .icns from PNG via sips + iconutil
-ICONSET="$ROOT/assets/HerbivoR.iconset"
+ICONSET="$ROOT/assets/Herbivora.iconset"
 rm -rf "$ICONSET"
 mkdir -p "$ICONSET"
 SRC="$PNG"
@@ -34,25 +34,25 @@ sips -z 1024 1024 "$SRC" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
-cat > "$APP/Contents/MacOS/HerbivoR" <<'EOF'
+cat > "$APP/Contents/MacOS/Herbivora" <<'EOF'
 #!/bin/bash
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
-exec "$ROOT/herbivor.sh"
+exec "$ROOT/herbivora.sh"
 EOF
-chmod +x "$APP/Contents/MacOS/HerbivoR"
+chmod +x "$APP/Contents/MacOS/Herbivora"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>HerbivoR</string>
-  <key>CFBundleDisplayName</key><string>HerbivoR</string>
+  <key>CFBundleName</key><string>Herbivora</string>
+  <key>CFBundleDisplayName</key><string>Herbivora</string>
   <key>CFBundleIdentifier</key><string>mx.mariosandoval.herbivor</string>
   <key>CFBundleVersion</key><string>$VER</string>
   <key>CFBundleShortVersionString</key><string>$VER</string>
-  <key>CFBundleExecutable</key><string>HerbivoR</string>
+  <key>CFBundleExecutable</key><string>Herbivora</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
@@ -66,4 +66,4 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-echo "Created $APP — double-click to launch (uses herbivor.sh + leaf icon)."
+echo "Created $APP — double-click to launch (uses herbivora.sh + leaf icon)."

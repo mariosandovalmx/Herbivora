@@ -1,11 +1,11 @@
-# Packaging notes for HerbivoR (maintainers)
+# Packaging notes for Herbivora (maintainers)
 
 ## End-user installers (preferred)
 
 | Artifact | Builder | Notes |
 |----------|---------|-------|
-| `HerbivoR-Setup-vVERSION.exe` | [`build_windows_setup.bat`](build_windows_setup.bat) + Inno Setup 6 | Unpacks source and runs `Install_HerbivoR.bat`. License page uses [`installer_license.txt`](installer_license.txt) (built from `LICENSE` + `THIRD_PARTY_NOTICES.md`). |
-| `HerbivoR-vVERSION.dmg` | [`build_macos_dmg.sh`](build_macos_dmg.sh) via **GitHub Actions** (or any Mac) | Drag-to-Applications `HerbivoR.app` with the HerbivoR leaf icon; first launch performs setup inside the app |
+| `Herbivora-Setup-vVERSION.exe` | [`build_windows_setup.bat`](build_windows_setup.bat) + Inno Setup 6 | Unpacks source and runs `Install_Herbivora.bat`. License page uses [`installer_license.txt`](installer_license.txt) (built from `LICENSE` + `THIRD_PARTY_NOTICES.md`). |
+| `Herbivora-vVERSION.dmg` | [`build_macos_dmg.sh`](build_macos_dmg.sh) via **GitHub Actions** (or any Mac) | Drag-to-Applications `Herbivora.app` with the Herbivora leaf icon; first launch performs setup inside the app |
 
 Core logic: [`bootstrap_install.py`](bootstrap_install.py) (GPU detect, private Python on Windows, venv, Torch, deps, models, shortcuts).
 
@@ -17,8 +17,8 @@ Attach **only** these small bootstraps to GitHub Releases. Torch and models down
 
 You **cannot** build a native `.dmg` on Windows (`hdiutil` is macOS-only). Use CI:
 
-1. Publish a GitHub Release for the version tag (with `HerbivoR-Setup-v*.exe` if you have it).
-2. Workflow [`.github/workflows/macos-dmg.yml`](../.github/workflows/macos-dmg.yml) runs on `macos-latest`, builds `HerbivoR-vVERSION.dmg`, and uploads it to that Release.
+1. Publish a GitHub Release for the version tag (with `Herbivora-Setup-v*.exe` if you have it).
+2. Workflow [`.github/workflows/macos-dmg.yml`](../.github/workflows/macos-dmg.yml) runs on `macos-latest`, builds `Herbivora-vVERSION.dmg`, and uploads it to that Release.
 3. The same workflow uploads **`SHA256SUMS`** (hashes of the DMG and any Setup.exe already on the Release).
 
 Manual re-run: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.5`).
@@ -30,7 +30,7 @@ chmod +x packaging/build_macos_dmg.sh
 ./packaging/build_macos_dmg.sh
 ```
 
-The disk image opens with `HerbivoR.app` beside an Applications shortcut. The
+The disk image opens with `Herbivora.app` beside an Applications shortcut. The
 user drags the app across, then launches it from Applications; no `.command`
 file or Terminal step is part of the normal macOS flow.
 
@@ -60,7 +60,7 @@ that build **is blocked on every Mac except the one that built it**. Check any
 candidate build before sending it to a tester:
 
 ```bash
-syspolicy_check distribution dist/dmg_stage/HerbivoR.app
+syspolicy_check distribution dist/dmg_stage/Herbivora.app
 ```
 
 `Notary Ticket Missing / Severity: Fatal` means recipients will be stopped. Two
@@ -68,15 +68,15 @@ different alerts follow, both from the same cause:
 
 | How the recipient launched it | Alert | Recoverable? |
 |---|---|---|
-| Double-click inside the mounted DMG | *The application "HerbivoR.app" can't be opened.* (OK only) | **No.** Dead end; they must copy it to `/Applications` first |
-| Double-click in `/Applications` | *Apple could not verify "HerbivoR" is free of malware* | Yes, via **System Settings → Privacy & Security → Open Anyway** |
+| Double-click inside the mounted DMG | *The application "Herbivora.app" can't be opened.* (OK only) | **No.** Dead end; they must copy it to `/Applications` first |
+| Double-click in `/Applications` | *Apple could not verify "Herbivora" is free of malware* | Yes, via **System Settings → Privacy & Security → Open Anyway** |
 
 The DMG ships ` READ ME FIRST.txt` (generated from
 [`macos_app/dmg_readme.txt`](macos_app/dmg_readme.txt), leading space so Finder
 sorts it first) covering both. Right-click → **Open** is no longer a reliable
 bypass; macOS 15 removed it for unnotarized apps, so the instructions lead with
 the Privacy & Security route and offer
-`xattr -dr com.apple.quarantine /Applications/HerbivoR.app` as the one-command
+`xattr -dr com.apple.quarantine /Applications/Herbivora.app` as the one-command
 alternative.
 
 ### Verify integrity
@@ -88,7 +88,7 @@ shasum -a 256 -c SHA256SUMS
 
 ```powershell
 # Windows (PowerShell) — compare to the line in SHA256SUMS
-Get-FileHash .\HerbivoR-Setup-v1.3.5.exe -Algorithm SHA256
+Get-FileHash .\Herbivora-Setup-v1.3.5.exe -Algorithm SHA256
 ```
 
 ## Optional PyInstaller (not for normal Releases)

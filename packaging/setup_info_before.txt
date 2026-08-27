@@ -1,24 +1,24 @@
-Welcome to the HerbivoR installer.
+Welcome to the Herbivora installer.
 
 LEGAL NOTICE — please read carefully before continuing:
 
-HerbivoR (software and HerbivoR-trained model weights) is licensed under the
+Herbivora (software and Herbivora-trained model weights) is licensed under the
 PolyForm Noncommercial License 1.0.0 for NONCOMMERCIAL research and education.
 
   • Commercial use requires PRIOR WRITTEN PERMISSION from the copyright holder
-    (Mario Sandoval). Contact via: https://github.com/mariosandovalmx/HerbivoR
-  • If you use HerbivoR in a publication, thesis, or presentation, you MUST
+    (Mario Sandoval). Contact via: https://github.com/mariosandovalmx/Herbivora
+  • If you use Herbivora in a publication, thesis, or presentation, you MUST
     cite it (see CITATION.cff after install).
   • Third-party components (MobileSAM, BiRefNet, and Python packages) remain
     under their own licenses (see THIRD_PARTY_NOTICES.md).
 
-The NEXT page shows the FULL license agreement (HerbivoR terms + third-party
+The NEXT page shows the FULL license agreement (Herbivora terms + third-party
 notices). You must accept those terms to install.
 
 After files are copied, Setup will automatically install Python, packages, and
 models (internet required, usually 5–20 minutes). Please wait — do not close
 the progress window until it finishes.
 
-On the final page you can optionally check "Launch HerbivoR".
+On the final page you can optionally check "Launch Herbivora".
 
 On PCs without an NVIDIA GPU, CPU mode is selected automatically.

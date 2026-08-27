@@ -58,7 +58,7 @@ def _install_crash_log() -> None:
 
         try:
             with log_path.open("a", encoding="utf-8") as fh:
-                fh.write("\n--- HerbivoR crash ---\n")
+                fh.write("\n--- Herbivora crash ---\n")
                 traceback.print_exception(exc_type, exc, tb, file=fh)
         except OSError:
             pass
@@ -82,10 +82,10 @@ def main() -> None:
 
     # Do not create a separate tk.Tk() splash root: destroying it on Windows can
     # post WM_QUIT and make mainloop() exit right after the real window opens.
-    # Splash is shown as a Toplevel inside HerbivoRApp construction instead.
-    from gui.app import HerbivoRApp
+    # Splash is shown as a Toplevel inside HerbivoraApp construction instead.
+    from gui.app import HerbivoraApp
 
-    app = HerbivoRApp()
+    app = HerbivoraApp()
     app.mainloop()
 
 

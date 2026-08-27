@@ -1,5 +1,5 @@
-# Build HerbivoR-v*.dmg on a macOS runner and attach it to the GitHub Release.
-# Also writes SHA256SUMS (DMG + any HerbivoR-Setup-*.exe already on the release).
+# Build Herbivora-v*.dmg on a macOS runner and attach it to the GitHub Release.
+# Also writes SHA256SUMS (DMG + any Herbivora-Setup-*.exe already on the release).
 #
 # Triggers:
 #   - When a Release is published (tag push + release create)
@@ -87,7 +87,7 @@ jobs:
           chmod +x packaging/build_macos_dmg.sh
           ./packaging/build_macos_dmg.sh
           VER="$(tr -d '[:space:]' < VERSION)"
-          DMG="$GITHUB_WORKSPACE/dist/HerbivoR-v${VER}.dmg"
+          DMG="$GITHUB_WORKSPACE/dist/Herbivora-v${VER}.dmg"
           test -f "$DMG"
           SIZE="$(stat -f%z "$DMG")"
           echo "DMG size bytes: $SIZE"
@@ -96,8 +96,8 @@ jobs:
           # Smoke: mount and confirm the drag-to-Applications contents and icon.
           MNT="$(mktemp -d)"
           hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG"
-          if [[ ! -d "$MNT/HerbivoR.app" || ! -L "$MNT/Applications" ]]; then
-            echo "ERROR: HerbivoR.app or Applications shortcut missing inside DMG"
+          if [[ ! -d "$MNT/Herbivora.app" || ! -L "$MNT/Applications" ]]; then
+            echo "ERROR: Herbivora.app or Applications shortcut missing inside DMG"
             ls -laR "$MNT" || true
             hdiutil detach "$MNT" || true
             exit 1
@@ -110,10 +110,10 @@ jobs:
             exit 1
           fi
           grep -q "$VER" "$MNT/ READ ME FIRST.txt"
-          test -f "$MNT/HerbivoR.app/Contents/Resources/AppIcon.icns"
+          test -f "$MNT/Herbivora.app/Contents/Resources/AppIcon.icns"
           plutil -extract CFBundleIconFile raw \
-            "$MNT/HerbivoR.app/Contents/Info.plist" | grep -q '^AppIcon$'
-          codesign --verify --deep --strict "$MNT/HerbivoR.app"
+            "$MNT/Herbivora.app/Contents/Info.plist" | grep -q '^AppIcon$'
+          codesign --verify --deep --strict "$MNT/Herbivora.app"
           hdiutil detach "$MNT"
 
           echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
@@ -164,13 +164,13 @@ jobs:
           # Include Windows Setup.exe from the same release when present
           gh release download "$TAG" \
             --repo "${{ github.repository }}" \
-            --pattern 'HerbivoR-Setup-*.exe' \
-            || echo "No HerbivoR-Setup-*.exe on release yet (ok)."
+            --pattern 'Herbivora-Setup-*.exe' \
+            || echo "No Herbivora-Setup-*.exe on release yet (ok)."
 
           {
-            shasum -a 256 HerbivoR-v*.dmg
-            if compgen -G 'HerbivoR-Setup-*.exe' > /dev/null; then
-              shasum -a 256 HerbivoR-Setup-*.exe
+            shasum -a 256 Herbivora-v*.dmg
+            if compgen -G 'Herbivora-Setup-*.exe' > /dev/null; then
+              shasum -a 256 Herbivora-Setup-*.exe
             fi
           } | tee SHA256SUMS
 

@@ -1,8 +1,8 @@
 ================================================================================
-HerbivoR — END-USER LICENSE AGREEMENT (Installer copy)
+Herbivora — END-USER LICENSE AGREEMENT (Installer copy)
 ================================================================================
 
-By installing or using HerbivoR you agree to the terms below.
+By installing or using Herbivora you agree to the terms below.
 This file is shown by the installer; the same terms ship as LICENSE and
 THIRD_PARTY_NOTICES.md in the installation folder.
 
@@ -10,22 +10,22 @@ Copyright (c) 2026 Mario Sandoval
 
 IMPORTANT SUMMARY (not a substitute for the full terms):
   • Noncommercial research, education, and similar noncommercial use: permitted.
-  • Commercial use of HerbivoR or HerbivoR-trained weights: NOT permitted without
+  • Commercial use of Herbivora or Herbivora-trained weights: NOT permitted without
     prior written permission from the copyright holder.
-  • Attribution required when you use HerbivoR or its trained weights in a
+  • Attribution required when you use Herbivora or its trained weights in a
     publication, thesis, presentation, or similar work (see CITATION.cff).
   • Third-party components (MobileSAM, BiRefNet, Python packages, etc.) remain
     under their own licenses (see Part C below).
   • Software and weights are provided AS IS, without warranty.
 
 Commercial licensing / permissions:
-  https://github.com/mariosandovalmx/HerbivoR
+  https://github.com/mariosandovalmx/Herbivora
 
 ================================================================================
-PART A — HerbivoR LICENSE (PolyForm Noncommercial License 1.0.0 + notices)
+PART A — Herbivora LICENSE (PolyForm Noncommercial License 1.0.0 + notices)
 ================================================================================
 
-HerbivoR — Noncommercial Research & Education License
+Herbivora — Noncommercial Research & Education License
 =====================================================
 
 Copyright (c) 2026 Mario Sandoval
@@ -35,14 +35,14 @@ This software is licensed under the PolyForm Noncommercial License 1.0.0
 required notices below.
 
 Plain-language summary (not a substitute for the full terms):
-  - You MAY use HerbivoR (application and HerbivoR-trained model weights)
+  - You MAY use Herbivora (application and Herbivora-trained model weights)
     for noncommercial research, education, personal study, and similar
     noncommercial purposes.
-  - You may NOT use HerbivoR or its trained weights for commercial purposes
+  - You may NOT use Herbivora or its trained weights for commercial purposes
     (including selling the software, offering it as a paid service, or using
     it as part of a commercial product or workflow) without prior written
     permission from the copyright holder.
-  - If you use HerbivoR or its trained weights in a publication, thesis,
+  - If you use Herbivora or its trained weights in a publication, thesis,
     presentation, or similar work, you MUST give appropriate credit (see
     CITATION.cff and the Required Notices below).
   - Third-party components (e.g. MobileSAM, BiRefNet) remain under their
@@ -50,11 +50,11 @@ Plain-language summary (not a substitute for the full terms):
   - The software and weights are provided "AS IS", without warranty.
 
 For commercial licensing, contact the copyright holder via the project
-repository: https://github.com/mariosandovalmx/HerbivoR
+repository: https://github.com/mariosandovalmx/Herbivora
 
-Required Notice: Copyright (c) 2026 Mario Sandoval — HerbivoR (software and HerbivoR-trained weights)
+Required Notice: Copyright (c) 2026 Mario Sandoval — Herbivora (software and Herbivora-trained weights)
 Required Notice: Noncommercial use only (research / education). Commercial use requires prior written permission from the copyright holder.
-Required Notice: Attribution required — if you use HerbivoR or its trained weights in a publication or presentation, cite it (see CITATION.cff in the source distribution).
+Required Notice: Attribution required — if you use Herbivora or its trained weights in a publication or presentation, cite it (see CITATION.cff in the source distribution).
 
 ---------------------------------------------------------------------------
 
@@ -181,31 +181,31 @@ licenses.
 PART B — REQUIRED ATTRIBUTION (CITATION)
 ================================================================================
 
-If you use HerbivoR (application and/or HerbivoR-trained model weights) in a
+If you use Herbivora (application and/or Herbivora-trained model weights) in a
 publication, thesis, presentation, or similar work, you MUST give appropriate
-credit. See CITATION.cff in the HerbivoR distribution for the preferred citation
+credit. See CITATION.cff in the Herbivora distribution for the preferred citation
 metadata.
 
-Required Notice: Copyright (c) 2026 Mario Sandoval — HerbivoR (software and
-HerbivoR-trained weights)
+Required Notice: Copyright (c) 2026 Mario Sandoval — Herbivora (software and
+Herbivora-trained weights)
 Required Notice: Noncommercial use only (research / education). Commercial use
 requires prior written permission from the copyright holder.
-Required Notice: Attribution required — if you use HerbivoR or its trained
+Required Notice: Attribution required — if you use Herbivora or its trained
 weights in a publication or presentation, cite it (see CITATION.cff).
 
 ================================================================================
 PART C — THIRD-PARTY NOTICES
 ================================================================================
 
-# Third-Party Notices — HerbivoR
+# Third-Party Notices — Herbivora
 
-HerbivoR bundles or downloads software and model weights that remain under their
+Herbivora bundles or downloads software and model weights that remain under their
 **own licenses**. This notice is provided for transparency. It is **not** a
 grant of additional rights beyond each component’s license.
 
-HerbivoR application code and HerbivoR-trained weights (`best_unet_shape.pth`,
+Herbivora application code and Herbivora-trained weights (`best_unet_shape.pth`,
 `best_model.pth`) are under the **PolyForm Noncommercial License 1.0.0** — see
-the root `LICENSE` file. Commercial use of HerbivoR or those weights requires
+the root `LICENSE` file. Commercial use of Herbivora or those weights requires
 **prior written permission** from the copyright holder.
 
 ---
@@ -216,10 +216,10 @@ the root `LICENSE` file. Commercial use of HerbivoR or those weights requires
 |---|---|
 | **Component** | MobileSAM weights (`mobile_sam.pt`) |
 | **Authors / project** | Chaoning Zhang et al. — [ChaoningZhang/MobileSAM](https://github.com/ChaoningZhang/MobileSAM) |
-| **Typical distribution used by HerbivoR** | [Ultralytics assets](https://github.com/ultralytics/assets/releases) (`mobile_sam.pt`) |
+| **Typical distribution used by Herbivora** | [Ultralytics assets](https://github.com/ultralytics/assets/releases) (`mobile_sam.pt`) |
 | **License** | Apache License 2.0 |
 
-HerbivoR does **not** re-license MobileSAM. You must comply with Apache-2.0 for
+Herbivora does **not** re-license MobileSAM. You must comply with Apache-2.0 for
 that component. Cite the MobileSAM / Segment Anything papers when appropriate.
 
 ---
@@ -232,8 +232,8 @@ that component. Cite the MobileSAM / Segment Anything papers when appropriate.
 | **Source** | [ZhengPeng7/BiRefNet_lite](https://huggingface.co/ZhengPeng7/BiRefNet_lite) on Hugging Face |
 | **License** | As published by the model authors on Hugging Face / project repository (verify on the model card before commercial use) |
 
-HerbivoR loads BiRefNet_lite on first use. Those terms are separate from the
-HerbivoR PolyForm Noncommercial license.
+Herbivora loads BiRefNet_lite on first use. Those terms are separate from the
+Herbivora PolyForm Noncommercial license.
 
 ---
 
@@ -251,11 +251,11 @@ package’s `LICENSE` / `METADATA` files) or on the package’s project page.
 
 ## Contact
 
-Commercial licensing for **HerbivoR** (software and HerbivoR-trained weights):
-see the project repository — https://github.com/mariosandovalmx/HerbivoR
+Commercial licensing for **Herbivora** (software and Herbivora-trained weights):
+see the project repository — https://github.com/mariosandovalmx/Herbivora
 
 ================================================================================
 END OF INSTALLER LICENSE TEXT
 ================================================================================
 
-Installing HerbivoR constitutes acceptance of Parts A–C above.
+Installing Herbivora constitutes acceptance of Parts A–C above.

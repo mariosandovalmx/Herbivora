@@ -1,7 +1,7 @@
-# HerbivoR application dependencies (GUI + inference).
+# Herbivora application dependencies (GUI + inference).
 #
 # PyTorch (torch / torchvision) is NOT listed here on purpose.
-# Install it first via Install_HerbivoR.bat / Install_HerbivoR.command
+# Install it first via Install_Herbivora.bat / Install_Herbivora.command
 # (or Install_CPU.bat, Install_CUDA.bat, Install.bat, install.sh)
 # so the correct CPU or CUDA wheel is used. See USER_GUIDE.md / INSTALL.md.
 

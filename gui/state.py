@@ -16,6 +16,7 @@ from gui.paths import (
     DEFAULT_UNET_SHAPE_CONFIG,
     DEFAULT_UNET_SHAPE_MODEL,
     LEAF_REFINE_CHOICES,
+    MORPHOLOGY_MODEL_FILES,
     REPO_ROOT,
     SEGMENT_METHOD_CHOICES,
 )
@@ -24,9 +25,9 @@ from gui.paths import (
 def _config_path() -> Path:
     appdata = os.environ.get("APPDATA")
     if appdata:
-        base = Path(appdata) / "HerbivoRGUI"
+        base = Path(appdata) / "HerbivoraGUI"
     else:
-        base = Path.home() / ".herbivor_gui"
+        base = Path.home() / ".herbivora_gui"
     base.mkdir(parents=True, exist_ok=True)
     return base / "config.json"
 
@@ -42,7 +43,7 @@ class ProjectState:
     # Segmentation
     segmentation_method: str = "birefnet_mobilesam"
     skip_segmentation: bool = False
-    multi_leaf_photos: bool = False  # Project: multiple leaves per photo → CC multi pipeline
+    multi_leaf_photos: bool = False  # Project: multiple leaves per photo → interactive multi-click
     skip_fastsam: bool = False
     fastsam_max_leaves: int | None = 2
     fastsam_output_size: int = PIPELINE_RESOLUTION
@@ -56,6 +57,7 @@ class ProjectState:
     fastsam_prior_dilate_px: int = 35
     fastsam_max_area_ratio: float = 0.75
     segment_advanced_expanded: bool = False
+    analyze_advanced_expanded: bool = False
     stressed_leaves: bool = True
     remove_blue: bool = True
     reject_dark_artifacts: bool = True
@@ -86,6 +88,7 @@ class ProjectState:
 
     # Contour
     contour_method: str = "recon_unet_shape"
+    contour_morphology: str = "auto"
     leaf_refine: str = "complete"
     leaf_img_size: int = 384
     leaf_normalize_bg: bool = True
@@ -95,6 +98,11 @@ class ProjectState:
     recon_unet_refine: str = "complete"
     recon_model_unet_shape: str = str(DEFAULT_UNET_SHAPE_MODEL)
     recon_unet_shape_config: str = str(DEFAULT_UNET_SHAPE_CONFIG)
+    # Per-morphology Contour specialists (Contour tab picks these automatically).
+    recon_model_shape_smooth: str = str(MORPHOLOGY_MODEL_FILES["smooth"])
+    recon_model_shape_serrated: str = str(MORPHOLOGY_MODEL_FILES["serrated"])
+    recon_model_shape_lobed: str = str(MORPHOLOGY_MODEL_FILES["lobed"])
+    recon_model_shape_compound: str = str(MORPHOLOGY_MODEL_FILES["compound"])
 
     # Analysis
     unet_size: int = PIPELINE_RESOLUTION
@@ -106,6 +114,7 @@ class ProjectState:
     white_hole_min_area: int = 3
     white_hole_edge_band: int = 2
     white_hole_adaptive: bool = True
+    superficial_damage: bool = True
     report_area_cm2: bool = False
     scale_area_cm2: float = 0.2827  # area of a 6.0mm-diameter (0.6cm) blue reference dot
 
@@ -141,10 +150,33 @@ class ProjectState:
         return "birefnet_mobilesam"
 
 
+# User-facing checkboxes: never restored from disk; always unchecked on each GUI launch.
+_SESSION_CHECKBOX_FIELDS: tuple[str, ...] = (
+    "skip_segmentation",
+    "multi_leaf_photos",
+    "remove_blue",
+    "stressed_leaves",
+    "reject_dark_artifacts",
+    "fastsam_strict_crop",
+    "white_hole_adaptive",
+    "segment_advanced_expanded",
+    "analyze_advanced_expanded",
+)
+
+
+def reset_session_checkboxes(state: ProjectState) -> None:
+    """Force all GUI checkboxes off at the start of each application session."""
+    for key in _SESSION_CHECKBOX_FIELDS:
+        setattr(state, key, False)
+    state.interactive_click_mode = ""
+
+
 def load_config() -> ProjectState:
     path = _config_path()
     if not path.is_file():
-        return ProjectState()
+        state = ProjectState()
+        reset_session_checkboxes(state)
+        return state
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         state = ProjectState()
@@ -155,14 +187,20 @@ def load_config() -> ProjectState:
         state.input_dir = ""
         state.output_dir = ""
         state.apply_fixed_pipeline_resolution()
+        reset_session_checkboxes(state)
         return state
     except (json.JSONDecodeError, OSError):
-        return ProjectState()
+        state = ProjectState()
+        reset_session_checkboxes(state)
+        return state
 
 
 def save_config(state: ProjectState) -> None:
     path = _config_path()
     state.apply_fixed_pipeline_resolution()
     data = asdict(state)
+    for key in _SESSION_CHECKBOX_FIELDS:
+        data.pop(key, None)
+    data.pop("interactive_click_mode", None)
     data["repo_root"] = str(REPO_ROOT)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

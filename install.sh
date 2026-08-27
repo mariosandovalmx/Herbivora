@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# HerbivoR installer for macOS / Linux
+# Herbivora installer for macOS / Linux
 # - macOS: installs default PyTorch (CPU + Metal/MPS when available)
 # - Linux: CUDA 12.4 if nvidia-smi works, otherwise CPU
 set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "============================================"
-echo "  HerbivoR - Dependency Installation"
+echo "  Herbivora - Dependency Installation"
 echo "============================================"
 echo
 
@@ -61,7 +61,7 @@ else
 fi
 
 echo
-echo "Installing HerbivoR packages from requirements.txt..."
+echo "Installing Herbivora packages from requirements.txt..."
 .venv/bin/python -m pip install -r requirements.txt
 
 echo
@@ -80,10 +80,10 @@ echo
 if [[ "$OS" == "Darwin" ]]; then
   echo "On Apple Silicon / modern Macs, Metal (MPS) is used automatically when available."
 fi
-echo "Open the application with: ./herbivor.sh"
+echo "Open the application with: ./herbivora.sh"
 if [[ "$OS" == "Darwin" ]]; then
   echo
-  echo "Creating HerbivoR.app with the leaf icon..."
+  echo "Creating Herbivora.app with the leaf icon..."
   if [[ -x "packaging/create_macos_app.sh" ]] || [[ -f "packaging/create_macos_app.sh" ]]; then
     chmod +x packaging/create_macos_app.sh 2>/dev/null || true
     bash packaging/create_macos_app.sh || echo "  (app shortcut skipped — run packaging/create_macos_app.sh later)"

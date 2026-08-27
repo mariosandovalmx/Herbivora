@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from tkinter import messagebox
 
 import customtkinter as ctk
 
-from gui.paths import DEFAULT_UNET_SHAPE_MODEL, white_bg_dir
+from gui.paths import (
+    MORPHOLOGY_CHOICES,
+    MORPHOLOGY_LABELS,
+    resolve_unet_shape_for_state,
+    white_bg_dir,
+)
 from gui.pipeline import build_contour_step, copy_leaf_masks_to_segmentation
 from gui.image_sources import contour_sources
 from gui.state import ProjectState
 from gui.widgets.contour_editor import ContourEditorCarousel, CONTOUR_EDIT_KEY
+from gui.widgets.shape_selector import ShapeSelector
 from gui.widgets.split_pane import SplitPane
 
 
@@ -42,11 +47,9 @@ class ContourTab(ctk.CTkFrame):
             scroll, text="Contour / ROI", font=ctk.CTkFont(size=18, weight="bold")
         ).grid(row=0, column=0, sticky="w", pady=(0, 12))
 
-        from gui.paths import PIPELINE_RESOLUTION
-
         ctk.CTkLabel(
             scroll,
-            text=f"",
+            text="",
             text_color="gray",
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=(0, 4))
@@ -75,6 +78,39 @@ class ContourTab(ctk.CTkFrame):
             wraplength=340,
             justify="left",
         ).pack(anchor="w", pady=(0, 6))
+
+        shape_frame = ctk.CTkFrame(scroll, fg_color="transparent")
+        shape_frame.grid(row=4, column=0, sticky="ew", pady=(4, 4))
+        ctk.CTkLabel(
+            shape_frame,
+            text="Leaf type:",
+            font=ctk.CTkFont(weight="bold"),
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            shape_frame,
+            text=(
+                "Choose the margin type so reconstruction preserves natural "
+                "serrations or lobes. Auto detects from the silhouette."
+            ),
+            text_color="gray",
+            wraplength=340,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 6))
+        self._shape_selector = ShapeSelector(
+            shape_frame,
+            on_shape_change=self._on_shape_change,
+        )
+        self._shape_selector.pack(anchor="w")
+        self._model_status = ctk.CTkLabel(
+            shape_frame,
+            text="",
+            text_color=("gray35", "gray65"),
+            wraplength=360,
+            justify="left",
+            anchor="w",
+            font=ctk.CTkFont(size=11),
+        )
+        self._model_status.pack(anchor="w", pady=(6, 0))
 
         btn_row = ctk.CTkFrame(scroll, fg_color="transparent")
         btn_row.grid(row=5, column=0, sticky="ew", pady=8)
@@ -122,6 +158,29 @@ class ContourTab(ctk.CTkFrame):
         self._edit_hint.grid(row=7, column=0, sticky="ew", pady=(0, 8))
         self._edit_hint.grid_remove()
 
+    def _on_shape_change(self, shape: str) -> None:
+        self._state.contour_morphology = shape if shape in MORPHOLOGY_CHOICES else "auto"
+        self._refresh_active_model_label()
+        self._on_change()
+
+    def _refresh_active_model_label(self) -> None:
+        """Show which Contour checkpoint will be used for the selected leaf type."""
+        morph = getattr(self._state, "contour_morphology", "auto") or "auto"
+        if morph not in MORPHOLOGY_CHOICES:
+            morph = "auto"
+        ckpt = resolve_unet_shape_for_state(self._state)
+        label = MORPHOLOGY_LABELS.get(morph, morph)
+        if ckpt.is_file():
+            self._model_status.configure(
+                text=f"Active model ({label}): {ckpt.name}",
+                text_color=("#1b5e20", "#81c784"),
+            )
+        else:
+            self._model_status.configure(
+                text=f"Missing model for {label}:\n{ckpt}",
+                text_color=("#b71c1c", "#ef9a9a"),
+            )
+
     def _on_edit_active_changed(self, active: bool) -> None:
         if active:
             self._edit_contour_btn.configure(text="Done editing")
@@ -158,6 +217,11 @@ class ContourTab(ctk.CTkFrame):
             self.set_run_contour_enabled(True)
 
     def load_from_state(self) -> None:
+        morph = getattr(self._state, "contour_morphology", "auto") or "auto"
+        if morph not in MORPHOLOGY_CHOICES:
+            morph = "auto"
+        self._shape_selector.set_shape(morph, notify=False)
+        self._refresh_active_model_label()
         self.refresh_preview()
 
     def refresh_preview(self) -> None:
@@ -169,6 +233,9 @@ class ContourTab(ctk.CTkFrame):
     def sync_to_state(self) -> None:
         self._state.contour_method = "recon_unet_shape"
         self._state.leaf_normalize_bg = True
+        shape = self._shape_selector.get_shape()
+        self._state.contour_morphology = shape if shape in MORPHOLOGY_CHOICES else "auto"
+        self._refresh_active_model_label()
         self._on_change()
 
     def _validate(self) -> bool:
@@ -194,17 +261,17 @@ class ContourTab(ctk.CTkFrame):
                     f"No images found in:\n{wb}",
                 )
             return False
-        unet_path = Path(
-            self._state.recon_model_unet_shape
-            or self._state.leaf_model
-            or str(DEFAULT_UNET_SHAPE_MODEL)
-        )
+        unet_path = resolve_unet_shape_for_state(self._state)
         if not unet_path.is_file():
+            morph = getattr(self._state, "contour_morphology", "auto") or "auto"
+            label = MORPHOLOGY_LABELS.get(morph, morph)
             messagebox.showerror(
                 "Error",
-                f"UNET Shape checkpoint not found:\n{unet_path}\n\n"
-                "Set Contour U-Net under Project → Advanced, or download models:\n"
-                "  python download_models.py",
+                f"UNET Shape checkpoint not found for leaf type '{label}':\n{unet_path}\n\n"
+                "Set Contour U-Net paths under Project → Advanced, or place "
+                "weights in models/:\n"
+                "  best_unet_shape.pth\n"
+                "  best_unet_shape_smooth.pth / _serrated / _lobed / _compound.pth",
             )
             return False
         return True

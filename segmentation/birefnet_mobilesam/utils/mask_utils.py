@@ -20,6 +20,21 @@ def largest_component(mask: np.ndarray) -> np.ndarray:
     return (labels == largest_label).astype(bool)
 
 
+def component_at_point(mask: np.ndarray, x: int, y: int) -> np.ndarray:
+    """Return the connected component containing (x, y)."""
+    H, W = mask.shape[:2]
+    px = int(max(0, min(W - 1, x)))
+    py = int(max(0, min(H - 1, y)))
+    mask_uint8 = mask.astype(np.uint8) * 255
+    n, labels, _, _ = cv2.connectedComponentsWithStats(mask_uint8, connectivity=8)
+    if n <= 1:
+        return mask.copy()
+    label = int(labels[py, px])
+    if label == 0:
+        return largest_component(mask)
+    return (labels == label).astype(bool)
+
+
 def largest_component_centroid(mask: np.ndarray) -> tuple[int, int]:
     """Return (cx, cy) of the largest connected component."""
     comp = largest_component(mask)
