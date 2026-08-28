@@ -6,8 +6,8 @@ message: >
   permission from the copyright holder.
 type: software
 authors:
-  - family-names: Sandoval
-    given-names: Mario
+  - family-names: Sandoval-Molina
+    given-names: Mario A.
     orcid: https://orcid.org/0000-0002-8536-6006
 identifiers:
   - type: doi
