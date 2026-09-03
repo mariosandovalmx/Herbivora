@@ -5,7 +5,7 @@
 <h1 align="center">Herbivora</h1>
 
 <p align="center">
-  <strong>A deep learning software for automated segmentation, contour detection, and quantification of leaf herbivory</strong>
+  <strong>A deep learning software for automated segmentation, contour detection, and bulk quantification of leaf herbivory</strong>
 </p>
 
 <p align="center">
