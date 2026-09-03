@@ -147,8 +147,8 @@ Official archive: [https://zenodo.org/records/22120799](https://zenodo.org/recor
 
 ```bibtex
 @software{sandoval_herbivora_2026,
-  author       = {Sandoval, Mario},
-  title        = {Herbivora - A Deep Learning Software for Automated, Segmentation, Contour detection and quantification of Leaf herbivory},
+  author       = {Sandoval-Molina, Mario},
+  title        = {Herbivora - A Deep Learning Software for Automated, Segmentation, Contour detection and bulk quantification of Leaf herbivory},
   version      = {v1.4.1},
   year         = {2026},
   month        = {8},
