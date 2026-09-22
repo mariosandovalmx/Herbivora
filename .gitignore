@@ -105,3 +105,7 @@ hf_cache/
 **/segmentation/masks/
 **/leaf_roi_preview/
 **/.temp_fastsam/
+
+# Leftovers next to the bundled demo photos (keep only test_imgs/*.jpg)
+test_imgs/segmentation/
+test_imgs/analyzed/

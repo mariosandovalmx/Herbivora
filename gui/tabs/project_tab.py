@@ -18,6 +18,7 @@ from gui.paths import (
     auto_detect_models,
     count_masks,
     count_white_bg_leaves,
+    ensure_demo_images_dir,
     list_images,
     segmentation_dir,
 )
@@ -133,9 +134,21 @@ class ProjectTab(ctk.CTkFrame):
             title="Project directories",
             message=(
                 "Input folder: Where your original images are located.\n"
-                "Output folder: Where all generated masks and analysis results will be saved."
+                "Output folder: Where all generated masks and analysis results will be saved.\n\n"
+                "Use sample images sets both folders to the photos included with "
+                "Herbivora (test_imgs), so you can try the software without "
+                "choosing your own pictures. The photos are restored every time "
+                "you press the button."
             ),
         ).pack(side="left", padx=8)
+        ctk.CTkButton(
+            row_proj,
+            text="Use sample images",
+            width=170,
+            height=28,
+            font=ctk.CTkFont(size=12),
+            command=self._on_use_sample_images,
+        ).pack(side="left", padx=(8, 0))
 
         self._input_picker = PathPickerRow(scroll, "Input folder")
         self._input_picker.grid(row=1, column=0, sticky="ew", pady=4)
@@ -523,6 +536,24 @@ class ProjectTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
     # Folder pickers
     # ------------------------------------------------------------------
+
+    def _on_use_sample_images(self) -> None:
+        """Select the bundled test_imgs photos as Input (and Output)."""
+        from tkinter import messagebox
+
+        demo = ensure_demo_images_dir()
+        if demo is None:
+            messagebox.showerror(
+                "Sample images not found",
+                "The included sample photos (test_imgs) could not be located.\n\n"
+                "Reinstall Herbivora or restore the test_imgs folder next to the program.",
+            )
+            return
+        self._input_picker.set(str(demo))
+        if self._input_refresh_job is not None:
+            self.after_cancel(self._input_refresh_job)
+            self._input_refresh_job = None
+        self._apply_input_change()
 
     def _sync_dirs_to_state(self) -> None:
         inp = self._input_picker.get()

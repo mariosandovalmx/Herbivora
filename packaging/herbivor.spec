@@ -18,6 +18,11 @@ datas = [
     (str(ROOT / "assets" / "herbivor_256.png"), "assets"),
     (str(ROOT / "assets" / "herbivor_icon.png"), "assets"),
 ]
+# Demo photos for Project → Use sample images (original JPEGs only).
+_demo_dir = ROOT / "test_imgs"
+if _demo_dir.is_dir():
+    for _img in sorted(_demo_dir.glob("*.jpg")) + sorted(_demo_dir.glob("*.jpeg")):
+        datas.append((str(_img), "test_imgs"))
 
 binaries = []
 hiddenimports = [

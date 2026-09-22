@@ -48,6 +48,8 @@ rsync -a \
   --exclude '*.lnk' \
   --exclude 'gui_error.log' \
   --exclude 'Herbivora.app' \
+  --exclude 'test_imgs/segmentation' \
+  --exclude 'test_imgs/leaf_roi_preview' \
   "$ROOT/" "$APP/Contents/Resources/payload/"
 
 # Full agreement text, generated directly inside the payload so a package build

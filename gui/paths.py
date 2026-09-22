@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 import re
@@ -200,6 +201,56 @@ def list_images(folder: Path) -> list[Path]:
         (p for p in folder.iterdir() if p.is_file() and is_image_path(p)),
         key=_natural_key,
     )
+
+
+# Bundled demo photos (Project tab → Use sample images). Only top-level JPEGs.
+DEMO_IMAGES_DIRNAME = "test_imgs"
+_DEMO_PHOTO_SUFFIXES = {".jpg", ".jpeg"}
+
+
+def _demo_photos(folder: Path) -> list[Path]:
+    if not folder.is_dir():
+        return []
+    return sorted(
+        (
+            p
+            for p in folder.iterdir()
+            if p.is_file() and p.suffix.lower() in _DEMO_PHOTO_SUFFIXES
+        ),
+        key=_natural_key,
+    )
+
+
+def demo_images_source_dir() -> Path | None:
+    """Packaged demo folder (bundle first, then the writable app root)."""
+    for root in (bundle_root(), app_root()):
+        candidate = root / DEMO_IMAGES_DIRNAME
+        if _demo_photos(candidate):
+            return candidate
+    return None
+
+
+def ensure_demo_images_dir() -> Path | None:
+    """Return a writable folder with the bundled sample photos.
+
+    Copies (or restores) the top-level JPEGs from the package into
+    ``app_root()/test_imgs`` so the Project-tab button always has the same
+    photos, including after the user deleted them from a previous trial.
+    """
+    src = demo_images_source_dir()
+    if src is None:
+        return None
+    dest = app_root() / DEMO_IMAGES_DIRNAME
+    dest.mkdir(parents=True, exist_ok=True)
+    for photo in _demo_photos(src):
+        target = dest / photo.name
+        if photo.resolve() == target.resolve():
+            continue
+        if not target.exists() or target.stat().st_size != photo.stat().st_size:
+            shutil.copy2(photo, target)
+    if not _demo_photos(dest):
+        return None
+    return dest
 
 
 def is_preextracted_leaf(path: Path) -> bool:
