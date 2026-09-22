@@ -27,8 +27,8 @@ REFINE_MORPHOLOGIES = frozenset({"serrated", "lobed", "smooth"})
 
 # Per-type reconstruction profiles. Tune one row at a time.
 # Entire (smooth): U-Net often hallucinates far into white paper; constrain
-# additions to the convex hull of the *damaged* silhouette (shape prior) and
-# do not expand further with hull_margin_fill of the refined mask.
+# additions to the convex hull of the *damaged* silhouette (shape prior).
+# Open margin bites are filled after paper-clip by hull_margin_fill (depth-gated).
 MORPHOLOGY_PROFILES: dict[str, dict] = {
     "auto": {
         "bridge": False,
@@ -42,17 +42,23 @@ MORPHOLOGY_PROFILES: dict[str, dict] = {
     },
     "smooth": {
         "bridge": True,
-        "bridge_max_growth": 0.12,
+        "bridge_max_growth": 0.35,
         "bridge_from_partial": True,
-        "hull_margin_fill": False,
+        "hull_margin_fill": True,
+        "hull_min_depth_px": 5.0,
+        "hull_min_area_px": 40,
+        "hull_min_dc": 0.15,
+        "hull_max_area_frac": 0.35,
         "clip_to_partial_hull": True,
         "partial_hull_dilate_px": 4,
         "drop_untouched_islands": True,
         "fill_internal_holes": True,
         "gentle_partial": False,
-        # Clip exterior paper FPs but keep herbivory hole fills (same as serrated).
+        # Clip exterior paper FPs but keep herbivory hole fills and open
+        # hull-gap reconstructions (paper-clip would otherwise erase bites).
         "clip_color": True,
         "clip_preserve_holes": True,
+        "clip_preserve_hull_gaps": True,
     },
     # Serrated: keep teeth (no hull / no paper-clip). U-Net already fills
     # most internal herbivory holes; clip_color was wiping those fills because
@@ -154,12 +160,19 @@ def _clip_added_paper(
     white_thresh: int = 240,
     *,
     preserve_internal_holes: bool = False,
+    preserve_hull_gaps: bool = False,
+    hull_min_depth_px: float = 5.0,
+    hull_min_area_px: int = 40,
+    hull_min_dc: float = 0.15,
+    hull_max_area_frac: float = 0.35,
 ) -> np.ndarray:
     """Remove newly added pixels that look like white background.
 
-    When ``preserve_internal_holes`` is True (serrated), paper pixels that
-    fall inside enclosed holes of the damaged leaf are kept — those are the
-    herbivory fills we want — while exterior paper hallucinations are dropped.
+    When ``preserve_internal_holes`` is True, paper pixels that fall inside
+    enclosed holes of the damaged leaf are kept (herbivory fills). When
+    ``preserve_hull_gaps`` is True (Entire), paper pixels in bite-like
+    open-margin hull gaps are kept; those look like paper but are the eaten
+    border we want in the ROI.
     """
     out = mask.astype(bool)
     partial_bool = partial > 0
@@ -172,6 +185,15 @@ def _clip_added_paper(
     if preserve_internal_holes:
         holes = ndimage.binary_fill_holes(partial_bool) & ~partial_bool
         remove = remove & ~holes
+    if preserve_hull_gaps:
+        keep = _bite_like_hull_gaps(
+            partial_bool,
+            min_depth_px=hull_min_depth_px,
+            min_area_px=hull_min_area_px,
+            min_dc=hull_min_dc,
+            max_area_frac=hull_max_area_frac,
+        )
+        remove = remove & ~keep
     out[remove] = False
     return out
 
@@ -323,26 +345,108 @@ def _symmetric_entire_envelope(
     return (envelope & hull) | partial_bool
 
 
+def _centroid_is_lateral(
+    cx: float,
+    mid_x: float,
+    width: float,
+    frac: float = 0.22,
+) -> bool:
+    """True if a gap centroid sits away from the midrib (left/right margin)."""
+    return abs(float(cx) - float(mid_x)) > float(frac) * max(float(width), 1.0)
+
+
+def _bite_like_hull_gaps(
+    mask_bool: np.ndarray,
+    *,
+    min_depth_px: float = 5.0,
+    min_area_px: int = 40,
+    min_dc: float = 0.15,
+    max_area_frac: float = 0.35,
+) -> np.ndarray:
+    """Hull-gap pixels that look like open-margin herbivory, not healthy crescents.
+
+    True bites are compact (high depth/chord). Midrib apex/petiole triangles
+    are rejected; shallow lateral nicks in the end bands are kept.
+    """
+    base = mask_bool.astype(bool)
+    out = np.zeros_like(base)
+    if not base.any():
+        return out
+
+    hull = _convex_hull_u8(base) > 0
+    filled = ndimage.binary_fill_holes(base)
+    exterior_gap = hull & ~filled
+    if not exterior_gap.any():
+        return out
+
+    excl = (
+        _combined_excl(
+            (base.astype(np.uint8) * 255),
+            neck_fraction=0.22,
+            apex_arc_fraction=0.045,
+        )
+        > 0
+    )
+    ys, xs = np.where(base)
+    y0 = float(ys.min())
+    y1 = float(ys.max())
+    span = max(y1 - y0, 1.0)
+    width = max(float(xs.max() - xs.min()), 1.0)
+    mid_x = float(xs.mean())
+    tip_cut = y0 + 0.12 * span
+    base_cut = y1 - 0.18 * span
+    leaf_area = max(int(base.sum()), 1)
+    max_one = max(int(min_area_px), int(max_area_frac * leaf_area))
+
+    dist = cv2.distanceTransform(exterior_gap.astype(np.uint8), cv2.DIST_L2, 5)
+    n, labels, stats, cents = cv2.connectedComponentsWithStats(
+        exterior_gap.astype(np.uint8), connectivity=8
+    )
+    for i in range(1, n):
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if area < int(min_area_px) or area > max_one:
+            continue
+        comp = labels == i
+        depth = float(dist[comp].max()) if comp.any() else 0.0
+        if depth < float(min_depth_px):
+            continue
+        chord = float(max(int(stats[i, cv2.CC_STAT_WIDTH]), int(stats[i, cv2.CC_STAT_HEIGHT])))
+        if depth / max(chord, 1.0) < float(min_dc):
+            continue
+        cx = float(cents[i, 0])
+        cy = float(cents[i, 1])
+        if cy <= tip_cut or cy >= base_cut:
+            if not _centroid_is_lateral(cx, mid_x, width, frac=0.18):
+                continue
+            if depth / max(chord, 1.0) < max(float(min_dc), 0.20):
+                continue
+        frac_excl = float((comp & excl).sum()) / float(area) if excl.any() else 0.0
+        if frac_excl >= 0.45 and not _centroid_is_lateral(cx, mid_x, width):
+            continue
+        out |= comp
+    return out
+
+
 def _clip_additions_to_partial_hull(
     mask_bool: np.ndarray,
     partial_bool: np.ndarray,
     *,
     dilate_px: int = 4,
+    min_depth_px: float = 5.0,
+    min_area_px: int = 40,
+    min_dc: float = 0.15,
+    max_area_frac: float = 0.35,
 ) -> np.ndarray:
-    """Clip U-Net FPs; force-fill Entire hull gaps except tip/petiole crescents.
+    """Clip U-Net FPs to the damaged-leaf hull/envelope.
 
-    Lateral margin bites are filled via hull(partial) \\ tissue. Tip and
-    petiole hull crescents are dropped (triangular hallucinations). A gap
-    component is kept only if it is mostly outside tip/petiole excl *and*
-    its centroid is not in the top/bottom ends of the leaf.
+    Open margin reconstruction is filled later by ``_hull_exterior_margin_fill``.
+    U-Net pixels may stay in bite-like hull gaps (even if they overlap the
+    full-width petiole band); tip/petiole crescents are dropped.
     """
     if not partial_bool.any():
         return mask_bool
 
     hull = _convex_hull_u8(partial_bool) > 0
-    filled = ndimage.binary_fill_holes(partial_bool)
-    hull_gap = hull & ~filled
-
     excl = (
         _combined_excl(
             (partial_bool.astype(np.uint8) * 255),
@@ -351,57 +455,21 @@ def _clip_additions_to_partial_hull(
         )
         > 0
     )
-
-    ys_p, _ = np.where(partial_bool)
-    y0 = float(ys_p.min())
-    y1 = float(ys_p.max())
-    span = max(y1 - y0, 1.0)
-    tip_cut = y0 + 0.12 * span
-    base_cut = y1 - 0.18 * span
-
-    hull_gap_keep = np.zeros_like(hull_gap)
-    if hull_gap.any():
-        n, labels, stats, cents = cv2.connectedComponentsWithStats(
-            hull_gap.astype(np.uint8), connectivity=8
-        )
-        for i in range(1, n):
-            comp = labels == i
-            area_c = int(stats[i, cv2.CC_STAT_AREA])
-            if area_c < 1:
-                continue
-            frac_excl = float((comp & excl).sum()) / float(area_c)
-            cy = float(cents[i, 1])
-            if frac_excl >= 0.45:
-                continue
-            if cy <= tip_cut or cy >= base_cut:
-                continue
-            hull_gap_keep |= comp
-
     prior = _symmetric_entire_envelope(
         partial_bool,
         dilate_px=max(1, dilate_px),
         width_expand=1.08,
         clip_to_hull=True,
     )
-    allowed = (prior | hull) & ~excl
-    clipped = partial_bool | (mask_bool & allowed)
-    out = clipped | hull_gap_keep
-
-    area = float(partial_bool.sum())
-    k = max(5, int(0.035 * float(np.sqrt(area))))
-    if k % 2 == 0:
-        k += 1
-    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-    closed = cv2.morphologyEx(out.astype(np.uint8), cv2.MORPH_CLOSE, ker) > 0
-    near = cv2.dilate(hull.astype(np.uint8), ker, iterations=1) > 0
-    close_add = closed & near & ~excl & ~partial_bool
-    out = out | close_add
-
-    # Final strip of tip/petiole excl additions only (end bands already
-    # handled by component centroid filter so mid-bite chords are intact).
-    added = out & ~partial_bool
-    out = partial_bool | (added & ~excl)
-    return out
+    keep_gap = _bite_like_hull_gaps(
+        partial_bool,
+        min_depth_px=min_depth_px,
+        min_area_px=min_area_px,
+        min_dc=min_dc,
+        max_area_frac=max_area_frac,
+    )
+    allowed = ((prior | hull) & ~excl) | keep_gap
+    return partial_bool | (mask_bool & allowed)
 
 
 def _drop_untouched_added_islands(
@@ -430,60 +498,55 @@ def _hull_exterior_margin_fill(
     mask: np.ndarray,
     *,
     max_area_growth: float = 0.15,
-    min_depth_px: float = 8.0,
-    min_area_px: int = 80,
+    min_depth_px: float = 5.0,
+    min_area_px: int = 40,
+    min_dc: float = 0.15,
+    max_area_frac: float = 0.35,
 ) -> np.ndarray:
     """
     Fill open margin bites for entire leaves via convex hull.
 
-    Only keeps exterior gap components deep/large enough to look like real
-    herbivory (not thin crescents along a slightly non-convex healthy margin).
-    Caps total growth and respects petiole/apex exclusion.
+    Only keeps exterior gap components that look like real herbivory
+    (compact, deep enough, not tip/petiole crescents). Caps total growth.
     """
     base = mask.astype(bool)
     if not base.any():
         return base
 
-    hull = _convex_hull_u8(base) > 0
-    filled = ndimage.binary_fill_holes(base)
-    # Outside filled tissue but inside hull = open margin gaps (not enclosed holes).
-    exterior_gap = hull & ~filled
-    if not exterior_gap.any():
+    kept = _bite_like_hull_gaps(
+        base,
+        min_depth_px=min_depth_px,
+        min_area_px=min_area_px,
+        min_dc=min_dc,
+        max_area_frac=max_area_frac,
+    )
+    if not kept.any():
         return base
 
-    excl = _combined_excl((base.astype(np.uint8) * 255))
-    if excl.any():
-        exterior_gap = exterior_gap & (excl == 0)
-
-    # Depth from the current outer edge into the hull gap.
-    dist = cv2.distanceTransform(exterior_gap.astype(np.uint8), cv2.DIST_L2, 5)
-
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(
-        exterior_gap.astype(np.uint8), connectivity=8
-    )
-    kept = np.zeros_like(exterior_gap)
     base_area = int(base.sum())
     budget = int(max_area_growth * base_area)
-    used = 0
+    if int(kept.sum()) <= budget:
+        return base | kept
 
-    # Prefer deep, large bites first.
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(
+        kept.astype(np.uint8), connectivity=8
+    )
+    dist = cv2.distanceTransform(kept.astype(np.uint8), cv2.DIST_L2, 5)
     scored: list[tuple[float, int, int]] = []
     for i in range(1, n):
         comp = labels == i
         area = int(stats[i, cv2.CC_STAT_AREA])
         depth = float(dist[comp].max()) if comp.any() else 0.0
-        if area < min_area_px or depth < min_depth_px:
-            continue
         scored.append((depth, area, i))
     scored.sort(reverse=True)
-
-    for depth, area, i in scored:
+    out = np.zeros_like(kept)
+    used = 0
+    for _depth, area, i in scored:
         if used + area > budget:
             continue
-        kept |= labels == i
+        out |= labels == i
         used += area
-
-    return base | kept
+    return base | out
 
 
 def _fill_lobed_margin_bites(
@@ -790,9 +853,11 @@ def refine_unet_mask(
     """
     Refine UNET output according to the morphology profile.
 
-    Entire (smooth): bridge U-Net + damaged partial, then exterior hull fill
-    for remaining open margin bites (no paper-clip). Serrated/lobed: bridging
-    with paper-clip. Compound: U-Net only. Never applies approxPolyDP smoothing.
+    Entire (smooth): bridge U-Net + damaged partial, clip additions to the
+    damaged hull/envelope, paper-clip exterior FPs (keeping hole and hull-gap
+    fills), then depth-gated hull fill for remaining open margin bites.
+    Serrated/lobed: paper-clip then type-specific bite fill. Compound: U-Net
+    only. Never applies approxPolyDP smoothing.
 
     Returns:
         (refined_mask_u8, morphology_used)
@@ -816,8 +881,12 @@ def refine_unet_mask(
     fill_holes = bool(profile.get("fill_internal_holes", False))
     serrated_bites = bool(profile.get("serrated_deep_bite_fill", False))
     lobed_bites = bool(profile.get("lobed_margin_bite_fill", False))
+    hull_min_depth = float(profile.get("hull_min_depth_px", 5.0))
+    hull_min_area = int(profile.get("hull_min_area_px", 40))
+    hull_min_dc = float(profile.get("hull_min_dc", 0.15))
+    hull_max_area_frac = float(profile.get("hull_max_area_frac", 0.35))
     # Morph-specific growth (do not let the global YAML override wipe the profile).
-    if serrated_bites or lobed_bites:
+    if hull_margin_fill or serrated_bites or lobed_bites:
         growth = float(profile["bridge_max_growth"])
 
     base = (mask > 0).astype(bool)
@@ -842,17 +911,15 @@ def refine_unet_mask(
             bridged_p, _ = bridge_exterior_gaps(partial_bool, max_area_growth=growth)
             refined = refined | bridged_p
 
-    if hull_margin_fill:
-        refined = _hull_exterior_margin_fill(
-            refined,
-            max_area_growth=growth,
-            min_depth_px=float(profile.get("hull_min_depth_px", 20.0)),
-            min_area_px=int(profile.get("hull_min_area_px", 400)),
-        )
-
     if clip_to_partial_hull:
         refined = _clip_additions_to_partial_hull(
-            refined, partial_bool, dilate_px=hull_dilate
+            refined,
+            partial_bool,
+            dilate_px=hull_dilate,
+            min_depth_px=hull_min_depth,
+            min_area_px=hull_min_area,
+            min_dc=hull_min_dc,
+            max_area_frac=hull_max_area_frac,
         )
 
     if drop_untouched:
@@ -865,6 +932,11 @@ def refine_unet_mask(
             bgr,
             white_thresh=white_thresh,
             preserve_internal_holes=bool(profile.get("clip_preserve_holes", False)),
+            preserve_hull_gaps=bool(profile.get("clip_preserve_hull_gaps", False)),
+            hull_min_depth_px=hull_min_depth,
+            hull_min_area_px=hull_min_area,
+            hull_min_dc=hull_min_dc,
+            hull_max_area_frac=hull_max_area_frac,
         )
 
     # Fill holes after paper-clip so enclosed herbivory voids stay closed even
@@ -873,6 +945,17 @@ def refine_unet_mask(
         refined = ndimage.binary_fill_holes(refined)
 
     # Margin bites after clip/fill so paper-clip cannot erase them.
+    if hull_margin_fill:
+        refined = _hull_exterior_margin_fill(
+            refined,
+            max_area_growth=growth,
+            min_depth_px=hull_min_depth,
+            min_area_px=hull_min_area,
+            min_dc=hull_min_dc,
+            max_area_frac=hull_max_area_frac,
+        )
+        refined = ndimage.binary_fill_holes(refined)
+
     if serrated_bites:
         refined = _bridge_serrated_margin_bites(
             refined,
@@ -905,6 +988,18 @@ def refine_unet_mask(
     refined = refined.astype(bool) | (partial_u8 > 0)
 
     if seg_mask is not None:
+        # Step-2 masks follow the chewed silhouette; do not erase Entire
+        # margin reconstructions that sit in hull(partial) outside that mask.
+        kept_margin = np.zeros_like(refined, dtype=bool)
+        if hull_margin_fill and partial_bool.any():
+            kept_margin = refined & _bite_like_hull_gaps(
+                partial_bool,
+                min_depth_px=hull_min_depth,
+                min_area_px=hull_min_area,
+                min_dc=hull_min_dc,
+                max_area_frac=hull_max_area_frac,
+            )
         refined = _clip_to_segmentation_roi(refined, seg_mask)
+        refined = refined | kept_margin | partial_bool
 
     return refined.astype(np.uint8) * 255, morph

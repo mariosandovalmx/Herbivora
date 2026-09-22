@@ -21,7 +21,7 @@ Trained checkpoints for **[Herbivora](https://github.com/mariosandovalmx/Herbivo
 | File | Role |
 |------|------|
 | `best_unet_shape.pth` | Contour U-Net default (mask-to-mask, 512 px; Auto mode fallback) |
-| `best_unet_shape_smooth.pth` | Contour specialist — entire / smooth margin |
+| `best_unet_shape_smooth.pth` | Contour specialist — entire / smooth margin (fine-tuned for large C-shaped bites and small edge nicks) |
 | `best_unet_shape_serrated.pth` | Contour specialist — serrated margin |
 | `best_unet_shape_lobed.pth` | Contour specialist — lobed margin |
 | `best_unet_shape_compound.pth` | Contour specialist — compound leaves |

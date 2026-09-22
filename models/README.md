@@ -11,6 +11,7 @@
 #                                  https://huggingface.co/mariosandovalmx/Herbivora
 #                                  License: PolyForm Noncommercial 1.0.0 (research/education)
 # best_unet_shape_smooth.pth       Contour specialist (entire / smooth margin) — Hub repo
+#                                  Fine-tuned for large (~15-25%) and small margin bites
 # best_unet_shape_serrated.pth     Contour specialist (serrated margin)
 # best_unet_shape_lobed.pth        Contour specialist (lobed)
 # best_unet_shape_compound.pth     Contour specialist (compound)

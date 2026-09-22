@@ -5,6 +5,11 @@ All notable changes to Herbivora are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] — 2026-09-22
+
+### Changed
+- Entire / smooth contour specialist (`best_unet_shape_smooth.pth`) fine-tuned on combined large C-shaped margin bites and small edge nicks; Hugging Face file of the same name updated.
+
 ## [1.4.0] — 2026-08-26
 
 ### Added

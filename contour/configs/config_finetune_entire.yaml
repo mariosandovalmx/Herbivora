@@ -1,0 +1,34 @@
+# Fine-tune Entire (smooth) contour U-Net on the unified folder
+# (large C-bites + small scallop nicks).
+#
+# Warm-start: Hugging Face Entire specialist (best_unet_shape_smooth.pth)
+# Save to a NEW file. Do not overwrite production until the mixed test is accepted.
+
+data:
+  dataset_dir: "D:/Herbivory_software/contour_finetune2/Entire_finetune_combined"
+  damaged_masks_subdir: "unet_damaged_masks"
+  clean_masks_subdir: "unet_clean_masks"
+  val_split: 0.15
+  image_size: 512
+
+model:
+  encoder: "resnet34"
+  in_channels: 1
+  out_channels: 1
+
+training:
+  epochs: 30
+  batch_size: 8
+  lr: 5.0e-5
+  weight_decay: 1.0e-4
+  early_stop_patience: 10
+  amp: true
+  compile: false
+  num_workers: 0
+  boundary_kernel: 5
+  warm_start: "models/best_unet_shape_smooth.pth"
+
+paths:
+  models_dir: "models"
+  save_best: "models/best_unet_shape_smooth_ft_both.pth"
+  save_last: "models/last_unet_shape_smooth_ft_both.pth"
