@@ -248,8 +248,10 @@ jobs:
           done
           tar -C "$WORK" -czf "$OUT" "$NAME"
 
-          tar -tvzf "$OUT" | grep -E '^-rwx.* '"$NAME"'/install\.sh$'
-          tar -tzf "$OUT" | grep -q "^$NAME/packaging/bootstrap_install.py$"
+          # List to a file first: grep -q closing the pipe early makes tar fail under pipefail.
+          tar -tvzf "$OUT" > "$WORK/listing.txt"
+          grep -E '^-rwx.* '"$NAME"'/install\.sh$' "$WORK/listing.txt"
+          grep -q " $NAME/packaging/bootstrap_install.py$" "$WORK/listing.txt"
           ls -l "$OUT"
 
           gh release upload "${{ needs.meta.outputs.tag }}" "$OUT" \
