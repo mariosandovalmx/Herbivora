@@ -17,11 +17,19 @@ Attach **only** these small bootstraps to GitHub Releases. Torch and models down
 
 You **cannot** build a native `.dmg` on Windows (`hdiutil` is macOS-only). Use CI:
 
-1. Publish a GitHub Release for the version tag (with `Herbivora-Setup-v*.exe` if you have it).
-2. Workflow [`.github/workflows/macos-dmg.yml`](../.github/workflows/macos-dmg.yml) runs on `macos-latest`, builds `Herbivora-vVERSION.dmg`, and uploads it to that Release.
-3. The same workflow uploads **`SHA256SUMS`** (hashes of the DMG and any Setup.exe already on the Release).
+1. Publish a GitHub Release for the version tag ([`release.ps1`](release.ps1) does this, see below).
+2. Workflow [`.github/workflows/release.yml`](../.github/workflows/release.yml) builds from the tag: `Herbivora-Setup-vVERSION.exe` on `windows-latest`, `Herbivora-vVERSION.dmg` on `macos-latest`, and `Herbivora-vVERSION-source-linux.tar.gz` on `ubuntu-latest`, and uploads them to that Release.
+3. When all three succeed, the same workflow uploads **`SHA256SUMS`** for them.
 
-Manual re-run: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.5`).
+Manual re-run: **Actions → Release installers → Run workflow** and enter the tag (e.g. `v1.4.3`), or `.\packaging\release.ps1 -Version 1.4.3 -RebuildOnly`.
+
+### Publishing a release
+
+1. Add a `## [X.Y.Z] — YYYY-MM-DD` section at the top of `CHANGELOG.md`.
+2. `.\packaging\release.ps1 -Version X.Y.Z -DryRun` — all checks, prints the notes, changes nothing.
+3. `.\packaging\release.ps1 -Version X.Y.Z -CommitTracked` — bumps `VERSION`, rebuilds `installer_license.txt`, commits modified tracked files, tags, pushes, creates the Release, waits for CI, and fails if any installer or `SHA256SUMS` is missing.
+
+Untracked files are never committed; `git add` new files first. Without `-CommitTracked` the script refuses to run on uncommitted tracked changes.
 
 Optional local build (only if you have a Mac):
 
@@ -51,7 +59,7 @@ Add these GitHub Actions secrets to enable the existing macOS workflow:
 | `APPLE_TEAM_ID` | 10-character Apple Developer team ID |
 | `APPLE_APP_PASSWORD` | App-specific password for notarization |
 
-With all secrets present, `.github/workflows/macos-dmg.yml` imports the
+With all secrets present, `.github/workflows/release.yml` imports the
 certificate, signs the app and DMG, submits the DMG to Apple, staples the
 notarization ticket, and verifies Gatekeeper acceptance before upload.
 

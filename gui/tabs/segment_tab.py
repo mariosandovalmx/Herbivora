@@ -69,24 +69,41 @@ class SegmentTab(ctk.CTkFrame):
             text="",
             anchor="w",
             justify="left",
-            wraplength=520,
+            wraplength=380,
         )
         self._warn_label.grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        self._leaf_tool_btn = ctk.CTkButton(
+            self._warn_banner,
+            text="Leaf",
+            width=72,
+            command=lambda: self._on_click_tool("leaf"),
+        )
+        self._leaf_tool_btn.grid(row=0, column=1, padx=(4, 0), pady=6)
+        self._leaf_tool_btn.grid_remove()
+        self._scale_tool_btn = ctk.CTkButton(
+            self._warn_banner,
+            text="Scale",
+            width=72,
+            command=lambda: self._on_click_tool("scale"),
+        )
+        self._scale_tool_btn.grid(row=0, column=2, padx=(4, 0), pady=6)
+        self._scale_tool_btn.grid_remove()
         self._mark_scale_btn = ctk.CTkButton(
             self._warn_banner,
             text="Mark scale",
             width=110,
             command=self._on_mark_scale_circle,
         )
-        self._mark_scale_btn.grid(row=0, column=1, padx=(4, 0), pady=6)
+        self._mark_scale_btn.grid(row=0, column=3, padx=(4, 0), pady=6)
         self._mark_scale_btn.grid_remove()
         self._warn_btn = ctk.CTkButton(
             self._warn_banner, text="Adjust blue dot", width=140,
             command=self._on_adjust_blue_dot,
         )
-        self._warn_btn.grid(row=0, column=2, padx=8, pady=6)
+        self._warn_btn.grid(row=0, column=4, padx=8, pady=6)
         self._warn_banner.grid_remove()
         self._pick_dot_interactive = False
+        self._click_tool = "leaf"
 
         self._carousel = ImageCarousel(
             right_panel,
@@ -158,12 +175,15 @@ class SegmentTab(ctk.CTkFrame):
                 "B. Otsu + LAB [FAST]: Classical computer-vision method. "
                 "No GPU or model download required. Best for clean white-background photos of intact green leaves.\n\n"
                 "C. Interactive segmentation: Click each leaf to preview selection (light-blue mask).\n"
-                "  • Only leaf: one click per photo (leaf only; % damage, no mm²).\n"
-                "  • Leaf + scale: first click = leaf, second click = blue scale sticker "
-                "(MobileSAM). Repeat for every photo, then Run segmentation.\n\n"
+                "  Each click selects only the object under the cursor (one leaf per click).\n"
+                "  Use the Leaf / Scale buttons next to Clear selections to choose the click tool.\n"
+                "  • Leaf: click each green leaf.\n"
+                "  • Scale: click the blue reference circle.\n"
+                "  • Only leaf: no scale — results in % damage only.\n"
+                "  • Leaf + scale: enables mm²/cm² analysis.\n\n"
                 "Multi-leaf photos: enable 'Multiple leaves per photo' on the Project tab "
-                "— uses Interactive segmentation only. Click each separated leaf; use "
-                "Leaf + scale to auto-detect the blue reference dot per photo."
+                "— uses Interactive segmentation only. Click each separated leaf one by one "
+                "with the Leaf tool; use Scale for the blue reference dot."
             ),
         ).pack(side="left", padx=4)
         self._multi_leaf_badge = ctk.CTkLabel(
@@ -202,8 +222,8 @@ class SegmentTab(ctk.CTkFrame):
             title="Interactive click mode",
             message=(
                 "Only leaf: click once on the leaf. No scale reference — results in % damage only.\n\n"
-                "Leaf + scale: click the leaf first, then click the blue scale sticker in the same "
-                "photo (MobileSAM fits the circle). Repeat both clicks for every photo. "
+                "Leaf + scale: use the Leaf / Scale buttons next to Clear selections. "
+                "Leaf: click each green leaf. Scale: click the blue reference circle. "
                 "This also enables the Project 'Scale reference' setting for mm²/cm² analysis."
             ),
         ).pack(side="left", padx=8)
@@ -532,6 +552,57 @@ class SegmentTab(ctk.CTkFrame):
     def _is_leaf_scale_mode(self) -> bool:
         return self._interactive_click_mode() == "leaf_scale"
 
+    def _refresh_click_tool_styles(self) -> None:
+        leaf_on = getattr(self, "_click_tool", "leaf") == "leaf"
+        idle_fg = ("gray85", "gray30")
+        idle_hover = ("gray75", "gray38")
+        idle_text = ("gray15", "gray90")
+        self._leaf_tool_btn.configure(
+            fg_color=("#2d8a4e", "#1f6b3a") if leaf_on else idle_fg,
+            hover_color=("#256e3e", "#18562f") if leaf_on else idle_hover,
+            text_color=("white", "white") if leaf_on else idle_text,
+        )
+        self._scale_tool_btn.configure(
+            fg_color=("#1f6aa5", "#1a5276") if not leaf_on else idle_fg,
+            hover_color=("#1a5c8d", "#154360") if not leaf_on else idle_hover,
+            text_color=("white", "white") if not leaf_on else idle_text,
+        )
+
+    def _set_click_tools_visible(self, visible: bool, *, enabled: bool = True) -> None:
+        if not hasattr(self, "_leaf_tool_btn"):
+            return
+        if visible:
+            self._leaf_tool_btn.grid()
+            self._scale_tool_btn.grid()
+            state = "normal" if enabled else "disabled"
+            self._leaf_tool_btn.configure(state=state)
+            self._scale_tool_btn.configure(state=state)
+            self._refresh_click_tool_styles()
+        else:
+            self._leaf_tool_btn.grid_remove()
+            self._scale_tool_btn.grid_remove()
+
+    def _on_click_tool(self, tool: str) -> None:
+        if tool not in ("leaf", "scale"):
+            tool = "leaf"
+        if self._interactive_busy:
+            return
+        self._click_tool = tool
+        self._pick_dot_interactive = False
+        self._scale_click_from_button = False
+        self._pick_dot_stem = None
+        if tool == "scale":
+            if not self._is_leaf_scale_mode():
+                self._on_interactive_mode_change("leaf_scale")
+        self._refresh_click_tool_styles()
+        self._update_interactive_banner()
+        if self._is_interactive_method():
+            from gui.interactive_sam_session import get_session
+
+            self._carousel.enable_point_click_mode(
+                get_session().mobilesam_ready and not self._interactive_busy
+            )
+
     def _interactive_stage(self, path: Path | None) -> str:
         """Return 'leaf' | 'scale' | 'done' for the current interactive photo."""
         if not self._is_leaf_scale_mode():
@@ -570,6 +641,8 @@ class SegmentTab(ctk.CTkFrame):
         if not use_scale:
             self._state.report_area_cm2 = False
             self._carousel.clear_scale_circle()
+            if getattr(self, "_click_tool", "leaf") == "scale":
+                self._click_tool = "leaf"
         elif self._is_multi_leaf_mode():
             path = self._carousel.current_path
             self._auto_detect_scale_for_current_photo(path)
@@ -613,6 +686,7 @@ class SegmentTab(ctk.CTkFrame):
 
         self._warn_label.configure(text="Loading MobileSAM (once)… please wait.")
         self._mark_scale_btn.grid_remove()
+        self._set_click_tools_visible(True, enabled=False)
         self._warn_btn.configure(text="…", state="disabled")
         self._warn_banner.grid()
         threading.Thread(target=worker, daemon=True).start()
@@ -625,6 +699,7 @@ class SegmentTab(ctk.CTkFrame):
         messagebox.showerror("MobileSAM load failed", err)
         self._warn_label.configure(text=f"MobileSAM failed to load: {err}")
         self._mark_scale_btn.grid_remove()
+        self._set_click_tools_visible(True, enabled=False)
         self._warn_btn.configure(text="Retry", state="normal", command=self._ensure_interactive_models_async)
         self._warn_banner.grid()
 
@@ -636,9 +711,16 @@ class SegmentTab(ctk.CTkFrame):
         ready = session.mobilesam_ready
         use_scale = self._is_leaf_scale_mode()
         multi = self._is_multi_leaf_mode()
+        tool = getattr(self, "_click_tool", "leaf")
+        tool_line = (
+            "Tool: Scale — click the blue reference circle."
+            if tool == "scale"
+            else "Tool: Leaf — click each green leaf (one object per click)."
+        )
+        self._mark_scale_btn.grid_remove()
         if not ready:
             self._warn_label.configure(text="Loading MobileSAM… please wait.")
-            self._mark_scale_btn.grid_remove()
+            self._set_click_tools_visible(True, enabled=False)
             self._warn_btn.configure(text="…", state="disabled")
         elif multi:
             path = self._carousel.current_path
@@ -647,27 +729,27 @@ class SegmentTab(ctk.CTkFrame):
                 circle = session.circle_for_path(path)
                 if circle and circle.get("found"):
                     scale_line = (
-                        f"Scale detected (orange ring): d={circle['diameter_px']:.0f}px"
+                        f"Scale marked: d={circle['diameter_px']:.0f}px"
                     )
                 else:
-                    scale_line = "Scale: blue dot not found on this photo (cm² may be unavailable)"
+                    scale_line = "Scale: click Scale, then the blue circle"
                 self._warn_label.configure(
                     text=(
-                        f"Multi-leaf + scale — click each separated leaf on this photo.\n"
+                        f"{tool_line}\n"
                         f"{scale_line}\n"
                         f"This photo: {stem_n} leaf click(s)  ·  Total: {n}  ·  "
-                        f"Next → next photo  ·  then Run segmentation"
+                        f"then Run segmentation"
                     )
                 )
             else:
                 self._warn_label.configure(
                     text=(
-                        f"Multi-leaf — click each separated leaf on this photo.\n"
+                        f"{tool_line}\n"
                         f"This photo: {stem_n} leaf click(s)  ·  Total: {n}  ·  "
-                        f"Next → next photo  ·  then Run segmentation"
+                        f"then Run segmentation"
                     )
                 )
-            self._mark_scale_btn.grid_remove()
+            self._set_click_tools_visible(True, enabled=True)
             self._warn_btn.configure(
                 text="Clear selections",
                 state="normal",
@@ -676,43 +758,29 @@ class SegmentTab(ctk.CTkFrame):
         elif not use_scale:
             self._warn_label.configure(
                 text=(
-                    f"Only leaf — click the leaf.\n"
-                    f"Selected: {n}  ·  Next → next photo  ·  then Run"
+                    f"{tool_line}\n"
+                    f"Only leaf — Selected: {n}  ·  then Run"
                 )
             )
-            self._mark_scale_btn.grid_remove()
+            self._set_click_tools_visible(True, enabled=True)
         else:
             path = self._carousel.current_path
             stage = self._interactive_stage(path)
-            if stage == "leaf":
-                self._warn_label.configure(
-                    text=f"Leaf + scale — Step 1/2: click the LEAF.\nSelected: {n}"
-                )
-                self._mark_scale_btn.grid_remove()
+            circle = session.circle_for_path(path)
+            if circle and circle.get("found"):
+                conf = "low-conf" if circle.get("low_confidence") else "ok"
+                scale_note = f"scale d={circle['diameter_px']:.0f}px ({conf})"
             elif stage == "scale":
-                self._warn_label.configure(
-                    text="Leaf + scale — Step 2/2: click the SCALE sticker."
-                )
-                self._mark_scale_btn.grid_remove()
+                scale_note = "scale not marked yet"
             else:
-                circle = session.circle_for_path(path)
-                if circle and circle.get("found"):
-                    conf = "low-conf" if circle.get("low_confidence") else "ok"
-                    scale_note = f"d={circle['diameter_px']:.0f}px ({conf})"
-                else:
-                    scale_note = "scale ok"
-                self._warn_label.configure(
-                    text=(
-                        f"Done — leaf + scale ({scale_note}).\n"
-                        f"Selected: {n}  ·  Next → repeat  ·  then Run"
-                    )
+                scale_note = "scale optional — use Scale"
+            self._warn_label.configure(
+                text=(
+                    f"{tool_line}\n"
+                    f"{scale_note}  ·  Selected: {n}  ·  then Run"
                 )
-                self._mark_scale_btn.configure(
-                    text="Mark scale",
-                    command=self._on_mark_scale_circle,
-                    state="normal",
-                )
-                self._mark_scale_btn.grid()
+            )
+            self._set_click_tools_visible(True, enabled=True)
         if ready:
             if multi:
                 pass  # warn_btn configured in multi branch above
@@ -806,8 +874,10 @@ class SegmentTab(ctk.CTkFrame):
         if not self._is_interactive_method():
             return
 
-        # Mark-scale mode (button): route click to MobileSAM circle fit
-        if self._pick_dot_interactive and self._pick_dot_stem is not None:
+        # Scale tool (or legacy Mark-scale): route click to MobileSAM circle fit
+        if getattr(self, "_click_tool", "leaf") == "scale" or (
+            self._pick_dot_interactive and self._pick_dot_stem is not None
+        ):
             self._on_mark_scale_sam_click(x, y)
             return
 
@@ -860,15 +930,6 @@ class SegmentTab(ctk.CTkFrame):
 
             threading.Thread(target=worker_multi, daemon=True).start()
             return
-
-        # Leaf + scale step 2: scale click (single-leaf only)
-        if self._is_leaf_scale_mode():
-            stage = self._interactive_stage(source_file)
-            if stage == "scale":
-                self._scale_click_from_button = False
-                self._pick_dot_stem = source_file.stem
-                self._on_mark_scale_sam_click(x, y)
-                return
 
         from gui.interactive_sam_session import get_session
 
@@ -938,58 +999,45 @@ class SegmentTab(ctk.CTkFrame):
 
         self._interactive_busy = False
         stem = self._pick_dot_stem
-        from_button = self._scale_click_from_button
         out_root = self._state.output_path()
+        keep_scale_tool = getattr(self, "_click_tool", "leaf") == "scale"
 
         if err:
             messagebox.showerror("Scale MobileSAM error", err)
             self._carousel.enable_point_click_mode(True)
-            if from_button:
-                self._warn_label.configure(
-                    text="Scale click failed — click the sticker again, or Cancel."
-                )
-                self._warn_btn.configure(text="Cancel", command=self._on_cancel_mark_scale)
-            else:
-                self._pick_dot_stem = None
-                self._pick_dot_interactive = False
-                self._scale_click_from_button = False
-                self._update_interactive_banner()
+            self._pick_dot_stem = None
+            self._pick_dot_interactive = False
+            self._scale_click_from_button = False
+            self._update_interactive_banner()
             return
 
         if not circle or not circle.get("found"):
             reason = (circle or {}).get("reason", "unknown")
             self._carousel.enable_point_click_mode(True)
-            if from_button:
-                self._warn_label.configure(
-                    text=(
-                        f"MobileSAM did not find a small circular sticker ({reason}). "
-                        f"Click again on the sticker, or Cancel."
-                    )
+            self._pick_dot_stem = None
+            self._pick_dot_interactive = False
+            self._scale_click_from_button = False
+            self._warn_label.configure(
+                text=(
+                    f"Scale click failed ({reason}). "
+                    f"Keep Scale selected and click the blue circle again."
                 )
-                self._warn_btn.configure(text="Cancel", command=self._on_cancel_mark_scale)
-            else:
-                self._pick_dot_stem = None
-                self._pick_dot_interactive = False
-                self._scale_click_from_button = False
-                self._warn_label.configure(
-                    text=(
-                        f"Scale click failed ({reason}). "
-                        f"Click the blue sticker again (Step 2 of 2)."
-                    )
-                )
-                self._warn_btn.configure(
-                    text="Clear selections",
-                    state="normal",
-                    command=self._clear_interactive_selections,
-                )
-                self._warn_banner.grid()
+            )
+            self._warn_btn.configure(
+                text="Clear selections",
+                state="normal",
+                command=self._clear_interactive_selections,
+            )
+            self._set_click_tools_visible(True, enabled=True)
+            self._warn_banner.grid()
             return
 
         # Success
         self._pick_dot_stem = None
         self._pick_dot_interactive = False
         self._scale_click_from_button = False
-        self._mark_scale_btn.configure(text="Mark scale", command=self._on_mark_scale_circle)
+        if keep_scale_tool:
+            self._click_tool = "scale"
 
         cx, cy = circle["center_px"]
         d = float(circle["diameter_px"])
@@ -999,17 +1047,20 @@ class SegmentTab(ctk.CTkFrame):
             except Exception:
                 pass
 
-        sel = get_session().selection_for_path(self._carousel.current_path)
-        if sel is not None:
-            self._carousel.set_preview_mask(sel.mask)
-        self._carousel.set_scale_circle(float(cx), float(cy), d)
+        path = self._carousel.current_path
+        if self._is_multi_leaf_mode():
+            layers = self._multi_leaf_preview_layers(path)
+            if layers:
+                self._carousel.set_preview_masks(layers)
+            else:
+                self._carousel.clear_preview_mask()
+            self._apply_scale_circle_overlay(path)
+        else:
+            sel = get_session().selection_for_path(path)
+            if sel is not None:
+                self._carousel.set_preview_mask(sel.mask)
+            self._carousel.set_scale_circle(float(cx), float(cy), d)
         self._apply_interactive_ui()
-        if from_button:
-            conf = " (low confidence)" if circle.get("low_confidence") else ""
-            messagebox.showinfo(
-                "Scale circle marked",
-                f"MobileSAM scale circle for '{stem}'.\nDiameter: {d:.1f}px{conf}",
-            )
 
     def _on_interactive_preview_done(self, sel, err: str | None) -> None:
         self._interactive_busy = False
@@ -1369,6 +1420,7 @@ class SegmentTab(ctk.CTkFrame):
             self._carousel.clear_preview_mask()
             self._carousel.clear_scale_circle()
             self._mark_scale_btn.grid_remove()
+            self._set_click_tools_visible(False)
             if not self._low_confidence_stems:
                 self._warn_banner.grid_remove()
 
@@ -1478,6 +1530,7 @@ class SegmentTab(ctk.CTkFrame):
             self._mark_scale_btn.grid()
         else:
             self._mark_scale_btn.grid_remove()
+        self._set_click_tools_visible(False)
         self._warn_btn.configure(
             text="Back to Input",
             state="normal",
@@ -1576,6 +1629,7 @@ class SegmentTab(ctk.CTkFrame):
         self._carousel.set_paths([source_file], empty_message="")
         self._carousel.enable_pick_dot_mode(True)
         self._mark_scale_btn.grid_remove()
+        self._set_click_tools_visible(False)
         self._warn_label.configure(
             text=f"Click-drag on the blue/dark reference dot in '{stem}' (center to edge), then release."
         )
@@ -1726,18 +1780,18 @@ class SegmentTab(ctk.CTkFrame):
                 if multi:
                     if mode == "leaf_scale":
                         tip = (
-                            "Multi-leaf + scale — click each separated leaf on every photo.\n"
-                            "The blue reference dot is detected automatically (orange ring).\n"
+                            "Select Leaf and click each green leaf, then Scale "
+                            "and click the blue reference circle.\n"
                             "Use Next to move between photos, then Run segmentation."
                         )
                     else:
                         tip = (
-                            "Multi-leaf — click each separated leaf on every photo.\n"
+                            "Select Leaf and click each separated leaf on every photo.\n"
                             "Use Next to move between photos, then Run segmentation."
                         )
                 elif mode == "leaf_scale":
                     tip = (
-                        "Click the leaf, then the scale sticker on each photo "
+                        "Use Leaf to click the leaf, then Scale to click the blue circle "
                         "(light-blue preview + cyan ring).\n"
                         "When all photos are selected, press Run segmentation again."
                     )
@@ -1779,8 +1833,9 @@ class SegmentTab(ctk.CTkFrame):
                 if missing_scale > 0:
                     if not messagebox.askyesno(
                         "Missing scale detection",
-                        f"{missing_scale} photo(s) have leaf click(s) but no blue scale detected.\n\n"
-                        "Continue anyway? (those photos will have no mm² calibration)",
+                        f"{missing_scale} photo(s) have leaf click(s) but no blue scale marked.\n\n"
+                        "Use the Scale button and click the blue circle, or Continue anyway "
+                        "(those photos will have no mm² calibration).",
                     ):
                         self._apply_interactive_ui()
                         return

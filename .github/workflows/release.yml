@@ -1,0 +1,281 @@
+# Build every end-user installer for a tag and attach them to its GitHub Release:
+#   Herbivora-Setup-vX.Y.Z.exe          (Windows, Inno Setup)
+#   Herbivora-vX.Y.Z.dmg                (macOS, drag to Applications)
+#   Herbivora-vX.Y.Z-source-linux.tar.gz (Linux / macOS source install, exec bits kept)
+#   SHA256SUMS                          (hashes of the three files above)
+#
+# Triggers:
+#   - When a Release is published (packaging/release.ps1 does this for you)
+#   - Manual: Actions → "Release installers" → Run workflow (enter tag, e.g. v1.4.4)
+#
+# Everything is built from the tag checkout, never from a local working tree.
+# macOS signing / notarization activate when the secrets in packaging/README.md exist.
+
+name: Release installers
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build for (e.g. v1.4.4)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      ver: ${{ steps.meta.outputs.ver }}
+    steps:
+      - name: Resolve tag
+        id: resolve
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "ERROR: no release tag"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
+
+      - name: Check VERSION matches tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.tag }}"
+          VER="$(tr -d '[:space:]' < VERSION)"
+          if [[ "v$VER" != "$TAG" ]]; then
+            echo "ERROR: VERSION file says $VER but tag is $TAG"
+            exit 1
+          fi
+          gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "Building installers for $TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-setup:
+    needs: meta
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" | Out-Null
+
+      - name: Build Setup.exe
+        shell: cmd
+        run: call packaging\build_windows_setup.bat
+
+      - name: Check and upload Setup.exe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = "dist\Herbivora-Setup-v${{ needs.meta.outputs.ver }}.exe"
+          if (-not (Test-Path $exe)) { throw "Missing $exe" }
+          $size = (Get-Item $exe).Length
+          Write-Host "Setup.exe size bytes: $size"
+          if ($size -lt 1MB) { throw "$exe is suspiciously small ($size bytes)" }
+          gh release upload "${{ needs.meta.outputs.tag }}" $exe --clobber --repo "${{ github.repository }}"
+          if ($LASTEXITCODE -ne 0) { throw "gh release upload failed" }
+
+  macos-dmg:
+    needs: meta
+    runs-on: macos-latest
+    env:
+      SIGNING_ENABLED: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_SIGNING_IDENTITY != '' }}
+      NOTARIZATION_ENABLED: ${{ secrets.MACOS_CERTIFICATE != '' && secrets.MACOS_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - name: Import Developer ID certificate
+        if: env.SIGNING_ENABLED == 'true'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/herbivor-signing.keychain-db"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$RUNNER_TEMP" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$RUNNER_TEMP" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$RUNNER_TEMP" "$KEYCHAIN_PATH"
+
+      - name: Build DMG
+        id: build
+        shell: bash
+        env:
+          DEVELOPER_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [[ "$SIGNING_ENABLED" == "true" ]]; then
+            export CODESIGN_IDENTITY="$DEVELOPER_IDENTITY"
+          else
+            unset CODESIGN_IDENTITY
+          fi
+          chmod +x packaging/build_macos_dmg.sh
+          ./packaging/build_macos_dmg.sh
+          VER="${{ needs.meta.outputs.ver }}"
+          DMG="$GITHUB_WORKSPACE/dist/Herbivora-v${VER}.dmg"
+          test -f "$DMG"
+          SIZE="$(stat -f%z "$DMG")"
+          echo "DMG size bytes: $SIZE"
+          test "$SIZE" -gt 100000
+
+          # Smoke: mount and confirm the drag-to-Applications contents and icon.
+          MNT="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG"
+          if [[ ! -d "$MNT/Herbivora.app" || ! -L "$MNT/Applications" ]]; then
+            echo "ERROR: Herbivora.app or Applications shortcut missing inside DMG"
+            ls -laR "$MNT" || true
+            hdiutil detach "$MNT" || true
+            exit 1
+          fi
+          # Unsigned builds depend on these instructions; fail loudly if absent.
+          if [[ ! -f "$MNT/ READ ME FIRST.txt" ]]; then
+            echo "ERROR: ' READ ME FIRST.txt' missing inside DMG"
+            ls -la "$MNT" || true
+            hdiutil detach "$MNT" || true
+            exit 1
+          fi
+          grep -q "$VER" "$MNT/ READ ME FIRST.txt"
+          test -f "$MNT/Herbivora.app/Contents/Resources/AppIcon.icns"
+          plutil -extract CFBundleIconFile raw \
+            "$MNT/Herbivora.app/Contents/Info.plist" | grep -q '^AppIcon$'
+          codesign --verify --deep --strict "$MNT/Herbivora.app"
+          hdiutil detach "$MNT"
+
+          echo "dmg=$DMG" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize and staple DMG
+        if: env.NOTARIZATION_ENABLED == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun notarytool submit "${{ steps.build.outputs.dmg }}" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple "${{ steps.build.outputs.dmg }}"
+          xcrun stapler validate "${{ steps.build.outputs.dmg }}"
+          spctl --assess --type open --context context:primary-signature \
+            --verbose=2 "${{ steps.build.outputs.dmg }}"
+
+      - name: Upload DMG to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "${{ needs.meta.outputs.tag }}" \
+            "${{ steps.build.outputs.dmg }}" \
+            --clobber \
+            --repo "${{ github.repository }}"
+
+  linux-source:
+    needs: meta
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.meta.outputs.tag }}
+
+      - name: Build source tarball
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VER="${{ needs.meta.outputs.ver }}"
+          NAME="Herbivora-v${VER}"
+          OUT="$GITHUB_WORKSPACE/dist/${NAME}-source-linux.tar.gz"
+          WORK="$(mktemp -d)"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+
+          # Tracked files only; users run these scripts directly after extracting.
+          git archive --format=tar --prefix="${NAME}/" HEAD | tar -x -C "$WORK"
+          for f in install.sh herbivora.sh Install_Herbivora.command; do
+            test -f "$WORK/$NAME/$f"
+            chmod +x "$WORK/$NAME/$f"
+          done
+          tar -C "$WORK" -czf "$OUT" "$NAME"
+
+          tar -tvzf "$OUT" | grep -E '^-rwx.* '"$NAME"'/install\.sh$'
+          tar -tzf "$OUT" | grep -q "^$NAME/packaging/bootstrap_install.py$"
+          ls -l "$OUT"
+
+          gh release upload "${{ needs.meta.outputs.tag }}" "$OUT" \
+            --clobber \
+            --repo "${{ github.repository }}"
+
+  checksums:
+    needs: [meta, windows-setup, macos-dmg, linux-source]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build SHA256SUMS and upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.meta.outputs.tag }}"
+          VER="${{ needs.meta.outputs.ver }}"
+          WORK="$(mktemp -d)"
+          cd "$WORK"
+          gh release download "$TAG" --repo "${{ github.repository }}" \
+            --pattern "Herbivora-Setup-v${VER}.exe" \
+            --pattern "Herbivora-v${VER}.dmg" \
+            --pattern "Herbivora-v${VER}-source-linux.tar.gz"
+          sha256sum \
+            "Herbivora-Setup-v${VER}.exe" \
+            "Herbivora-v${VER}.dmg" \
+            "Herbivora-v${VER}-source-linux.tar.gz" | tee SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber --repo "${{ github.repository }}"

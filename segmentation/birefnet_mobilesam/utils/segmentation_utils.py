@@ -325,36 +325,157 @@ def load_mobilesam(device: torch.device, weights: str | Path | None = None):
     return model
 
 
-def run_mobilesam_point(image_bgr: np.ndarray, model,
-                        point: tuple[int, int]) -> np.ndarray:
-    """Run MobileSAM with a single foreground point prompt.
+def _resize_sam_mask(mask_hw: np.ndarray, width: int, height: int) -> np.ndarray:
+    """Nearest-neighbour resize of a SAM mask to original image size."""
+    return cv2.resize(
+        mask_hw.astype(np.uint8),
+        (width, height),
+        interpolation=cv2.INTER_NEAREST,
+    ).astype(bool)
+
+
+def _pick_sam_mask(
+    masks_resized: list[np.ndarray],
+    point: tuple[int, int],
+    *,
+    single_object: bool,
+) -> np.ndarray | None:
+    """Choose one SAM candidate. Interactive clicks prefer the smallest object under the point."""
+    if not masks_resized:
+        return None
+    px, py = point
+    H, W = masks_resized[0].shape[:2]
+    px = int(max(0, min(W - 1, px)))
+    py = int(max(0, min(H - 1, py)))
+    nonempty = [m for m in masks_resized if m.any()]
+    if not nonempty:
+        return None
+    containing = [m for m in nonempty if bool(m[py, px])]
+    pool = containing or nonempty
+    if single_object:
+        return min(pool, key=lambda m: int(m.sum()))
+    return max(pool, key=lambda m: int(m.sum()))
+
+
+def _flood_similar_in_mask(
+    image_bgr: np.ndarray,
+    mask: np.ndarray,
+    seed: tuple[int, int],
+    *,
+    tol: int = 22,
+) -> np.ndarray:
+    """Lab flood-fill from ``seed``, constrained to ``mask`` (OpenCV floodFill)."""
+    H, W = mask.shape[:2]
+    px = int(max(0, min(W - 1, seed[0])))
+    py = int(max(0, min(H - 1, seed[1])))
+    if not mask[py, px]:
+        return np.zeros((H, W), dtype=bool)
+    lab = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)
+    flood_mask = np.zeros((H + 2, W + 2), dtype=np.uint8)
+    flood_mask[1 : H + 1, 1 : W + 1] = np.where(mask, 0, 1).astype(np.uint8)
+    lo = (int(tol), int(tol), int(tol))
+    hi = lo
+    flags = 4 | cv2.FLOODFILL_MASK_ONLY | (255 << 8)
+    cv2.floodFill(lab.copy(), flood_mask, (px, py), 0, lo, hi, flags)
+    return flood_mask[1 : H + 1, 1 : W + 1] == 255
+
+
+def _bbox_xyxy(mask: np.ndarray, *, margin_frac: float = 0.12) -> tuple[int, int, int, int]:
+    ys, xs = np.where(mask)
+    H, W = mask.shape[:2]
+    x1, x2 = int(xs.min()), int(xs.max()) + 1
+    y1, y2 = int(ys.min()), int(ys.max()) + 1
+    pad = int(max(x2 - x1, y2 - y1, 1) * margin_frac)
+    return (
+        max(0, x1 - pad),
+        max(0, y1 - pad),
+        min(W, x2 + pad),
+        min(H, y2 + pad),
+    )
+
+
+def run_mobilesam_point(
+    image_bgr: np.ndarray,
+    model,
+    point: tuple[int, int],
+    *,
+    single_object: bool = False,
+    negative_points: list[tuple[int, int]] | None = None,
+) -> np.ndarray:
+    """Run MobileSAM with a foreground point prompt.
 
     Returns a boolean mask (H, W) at original image resolution.
+
+    ``single_object=True`` restricts the result to the object under the click
+    (used by interactive segmentation when several leaves share a photo).
+    ``negative_points`` are SAM background prompts (label=0), typically the
+    click coordinates of other leaves already marked on the same photo.
     """
+    from .mask_utils import isolate_clicked_object
+
     H, W = image_bgr.shape[:2]
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    px = int(max(0, min(W - 1, round(point[0]))))
+    py = int(max(0, min(H - 1, round(point[1]))))
+
+    pts = [[px, py]]
+    lbls = [1]
+    if negative_points:
+        for nx, ny in negative_points:
+            nxi = int(max(0, min(W - 1, round(nx))))
+            nyi = int(max(0, min(H - 1, round(ny))))
+            if nxi == px and nyi == py:
+                continue
+            pts.append([nxi, nyi])
+            lbls.append(0)
 
     try:
-        results = model(
-            image_rgb,
-            points=[[list(point)]],
-            labels=[[1]],
-            verbose=False,
-        )
+        predict_kwargs: dict = {
+            "points": [pts],
+            "labels": [lbls],
+            "verbose": False,
+        }
+        if single_object:
+            # Keep lower-score (often smaller) masks; default conf=0.25 drops them.
+            predict_kwargs["conf"] = 0.05
+        else:
+            # Reset predictor conf if a previous interactive call lowered it.
+            predict_kwargs["conf"] = 0.25
+        results = model(image_rgb, **predict_kwargs)
         if results and results[0].masks is not None:
             masks_data = results[0].masks.data.cpu().numpy()  # (N, h, w)
-            # Pick the largest mask
-            areas = [m.sum() for m in masks_data]
-            best_mask = masks_data[int(np.argmax(areas))]
-            mask_resized = cv2.resize(
-                best_mask.astype(np.uint8), (W, H),
-                interpolation=cv2.INTER_NEAREST,
-            )
-            return mask_resized.astype(bool)
+            resized = [_resize_sam_mask(m, W, H) for m in masks_data]
+            best = _pick_sam_mask(resized, (px, py), single_object=single_object)
+            if best is None:
+                raise RuntimeError("MobileSAM returned empty masks")
+            if not single_object:
+                return best
+
+            isolated = isolate_clicked_object(best, px, py)
+            sam_area = int(isolated.sum())
+            if sam_area <= 0:
+                return isolated
+
+            flood = _flood_similar_in_mask(image_bgr, isolated, (px, py))
+            flood_area = int(flood.sum())
+            # Flood much smaller than SAM → SAM likely swallowed a neighbour
+            # (e.g. two green leaves on a petri dish). Re-run with a box.
+            if 0.12 * sam_area < flood_area < 0.80 * sam_area:
+                box = _bbox_xyxy(flood, margin_frac=0.18)
+                boxed = run_mobilesam_box(image_bgr, model, box)
+                boxed = isolate_clicked_object(boxed, px, py)
+                boxed_area = int(boxed.sum())
+                if boxed_area > 0 and boxed_area <= sam_area:
+                    return boxed
+                if flood_area > 0:
+                    return flood
+            return isolated
     except Exception as e:
         print(f"[MobileSAM] inference error: {e}")
 
-    # Fallback: entire image as positive
+    if single_object:
+        return np.zeros((H, W), dtype=bool)
+    # Automatic pipeline fallback: entire image as positive
     return np.ones((H, W), dtype=bool)
 
 

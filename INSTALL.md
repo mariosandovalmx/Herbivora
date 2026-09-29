@@ -115,15 +115,15 @@ Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 packaging\build_windows_setup.bat
 ```
 
-Output: `dist\Herbivora-Setup-vVERSION.exe` — attach to the GitHub Release.
+Output: `dist\Herbivora-Setup-vVERSION.exe`. Local builds are for testing; the Release copy is built by CI (see *Release checklist*).
 
 ### Build macOS DMG
 
 A native `.dmg` requires macOS (`hdiutil`). **You do not need a local Mac:** GitHub Actions builds it.
 
-1. Publish the GitHub Release for your tag (attach `Herbivora-Setup-v*.exe` from Windows if ready).
-2. Workflow `.github/workflows/macos-dmg.yml` builds `Herbivora-vVERSION.dmg` on `macos-latest` and uploads it, plus `SHA256SUMS`.
-3. To rebuild for an existing tag: **Actions → macOS DMG → Run workflow** and enter the tag (e.g. `v1.3.5`).
+1. Publish the GitHub Release for your tag (the release script below does this).
+2. Workflow `.github/workflows/release.yml` builds `Herbivora-vVERSION.dmg` on `macos-latest` together with the Windows Setup and Linux tarball, and uploads them plus `SHA256SUMS`.
+3. To rebuild for an existing tag: **Actions → Release installers → Run workflow** and enter the tag (e.g. `v1.4.3`).
 
 Optional local build (only if you have a Mac):
 
@@ -164,17 +164,22 @@ Large onedir builds are **not** the supported user channel. See [packaging/READM
 
 ### Release checklist
 
-1. Bump `VERSION` and `CHANGELOG.md`.
-2. Commit and push `main`.
-3. Build `Herbivora-Setup-vVERSION.exe` on Windows (`packaging\build_windows_setup.bat`
-   regenerates `packaging\installer_license.txt` from `LICENSE` + `THIRD_PARTY_NOTICES.md`);
-   attach the Setup when creating the Release (+ source ZIP is automatic).
-4. Tag and publish — CI then attaches the macOS DMG and `SHA256SUMS`:
+1. Add a `## [X.Y.Z] — YYYY-MM-DD` section at the top of `CHANGELOG.md`.
+2. Run the release script (PowerShell, from the repository root):
 
-```bash
-git tag v1.3.0
-git push origin main --tags
-gh release create v1.3.0 --title "Herbivora v1.3.0" --notes-file CHANGELOG.md dist/Herbivora-Setup-v1.3.0.exe
+```powershell
+.\packaging\release.ps1 -Version 1.4.4 -DryRun          # checks only, prints the release notes
+.\packaging\release.ps1 -Version 1.4.4 -CommitTracked   # publish
 ```
+
+The script bumps `VERSION`, regenerates `packaging\installer_license.txt`, commits,
+tags `vX.Y.Z`, pushes, and creates the GitHub Release. Workflow
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then builds from the tag
+and attaches `Herbivora-Setup-vX.Y.Z.exe`, `Herbivora-vX.Y.Z.dmg`,
+`Herbivora-vX.Y.Z-source-linux.tar.gz`, and `SHA256SUMS`. The script waits for the
+build and fails if any of the four files is missing.
+
+If CI fails, fix the cause on `main` and re-run only the build:
+`.\packaging\release.ps1 -Version 1.4.4 -RebuildOnly`.
 
 Do **not** attach multi-GB PyInstaller / CUDA ZIPs to GitHub Releases (2 GB asset limit).

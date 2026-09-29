@@ -1465,7 +1465,9 @@ def hybrid_select_damage_region(
         from utils.segmentation_utils import run_mobilesam_point
 
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-        sam_mask = run_mobilesam_point(bgr, mobilesam_model, point=(x, y))
+        sam_mask = run_mobilesam_point(
+            bgr, mobilesam_model, point=(x, y), single_object=True
+        )
     except Exception:
         return _flood_fallback()
 

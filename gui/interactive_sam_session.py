@@ -402,6 +402,7 @@ class InteractiveSamSession:
         self._ensure_path()
         from image_io import load_bgr
         from utils.segmentation_utils import run_mobilesam_point
+        from utils.mask_utils import isolate_clicked_object
 
         image = load_bgr(image_path)
         if image is None:
@@ -409,7 +410,22 @@ class InteractiveSamSession:
         H, W = image.shape[:2]
         px = int(max(0, min(W - 1, round(x))))
         py = int(max(0, min(H - 1, round(y))))
-        mask = run_mobilesam_point(image, self._mobilesam, point=(px, py))
+        negatives: list[tuple[int, int]] = [
+            (prev.x, prev.y)
+            for prev in self.multi_leaves.get(image_path.stem, [])
+            if prev.mask is not None and prev.mask.size > 1
+        ]
+        mask = run_mobilesam_point(
+            image,
+            self._mobilesam,
+            point=(px, py),
+            single_object=True,
+            negative_points=negatives or None,
+        )
+        for prev in self.multi_leaves.get(image_path.stem, []):
+            if prev.mask is not None and prev.mask.shape == mask.shape:
+                mask = mask & ~prev.mask.astype(bool)
+        mask = isolate_clicked_object(mask, px, py)
 
         stem = image_path.stem
         sel = InteractiveSelection(
@@ -440,15 +456,28 @@ class InteractiveSamSession:
         *,
         subtract_from_mask: bool = True,
     ) -> InteractiveSelection | None:
-        """Attach circle to an existing selection, or store as pending until leaf click."""
+        """Attach circle to leaf selections and store it as the photo scale."""
         if not circle.get("found"):
             return None
+        self.photo_circles[stem] = circle
+        applied: InteractiveSelection | None = None
         sel = self.selections.get(stem)
-        if sel is None:
+        if sel is not None:
+            applied = _apply_circle_to_selection(
+                sel, circle, subtract_from_mask=subtract_from_mask
+            )
+        leaves = self.multi_leaves.get(stem, [])
+        if leaves:
+            for leaf in leaves:
+                _apply_circle_to_selection(
+                    leaf, circle, subtract_from_mask=subtract_from_mask
+                )
+            applied = leaves[-1]
+        if applied is None:
             self.pending_circles[stem] = circle
-            return None
-        self.pending_circles.pop(stem, None)
-        return _apply_circle_to_selection(sel, circle, subtract_from_mask=subtract_from_mask)
+        else:
+            self.pending_circles.pop(stem, None)
+        return applied
 
     def predict_scale_click(
         self,
@@ -471,7 +500,12 @@ class InteractiveSamSession:
         H, W = image.shape[:2]
         px = int(max(0, min(W - 1, round(x))))
         py = int(max(0, min(H - 1, round(y))))
-        mask = run_mobilesam_point(image, self._mobilesam, point=(px, py))
+        mask = run_mobilesam_point(
+            image,
+            self._mobilesam,
+            point=(px, py),
+            single_object=True,
+        )
         circle = _circle_from_mask(mask, known_diameter_mm, image_hw=(H, W))
         if not circle.get("found"):
             reason = circle.get("reason", "unknown")
@@ -511,7 +545,12 @@ class InteractiveSamSession:
         H, W = image.shape[:2]
         px = int(max(0, min(W - 1, round(x))))
         py = int(max(0, min(H - 1, round(y))))
-        mask = run_mobilesam_point(image, self._mobilesam, point=(px, py))
+        mask = run_mobilesam_point(
+            image,
+            self._mobilesam,
+            point=(px, py),
+            single_object=True,
+        )
 
         stem = image_path.stem
         prev = self.selections.get(stem)

@@ -5,6 +5,19 @@ All notable changes to Herbivora are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] — 2026-09-29
+
+### Changed
+- Interactive segmentation: each click selects only the object under the cursor, so touching leaves on the same photo (e.g. a petri dish) are no longer merged into one mask.
+- Interactive segmentation: **Leaf** / **Scale** tool buttons next to Clear selections choose what the next click marks, instead of relying on click order.
+- Multi-leaf photos: leaves already marked are sent to MobileSAM as background points, and the blue scale circle is applied to every leaf of the photo.
+- Hybrid damage-region selection uses the same single-object MobileSAM mode.
+
+### Packaging
+- Windows `Herbivora-Setup-vX.Y.Z.exe` and a Linux source tarball (`Herbivora-vX.Y.Z-source-linux.tar.gz`) are now built by GitHub Actions and attached to every Release, together with the macOS DMG and `SHA256SUMS`.
+- `install.sh`, `herbivora.sh`, and `Install_Herbivora.command` are executable after extracting the source.
+- Maintainers publish with `packaging/release.ps1`.
+
 ## [1.4.3] — 2026-09-22
 
 ### Added

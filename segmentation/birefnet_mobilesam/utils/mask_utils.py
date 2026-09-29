@@ -20,8 +20,20 @@ def largest_component(mask: np.ndarray) -> np.ndarray:
     return (labels == largest_label).astype(bool)
 
 
-def component_at_point(mask: np.ndarray, x: int, y: int) -> np.ndarray:
-    """Return the connected component containing (x, y)."""
+def component_at_point(
+    mask: np.ndarray,
+    x: int,
+    y: int,
+    *,
+    fallback: str = "largest",
+) -> np.ndarray:
+    """Return the connected component containing (x, y).
+
+    ``fallback`` when the click lands on background:
+    - ``largest``: keep the largest foreground component (legacy)
+    - ``nearest``: keep the component of the nearest foreground pixel
+    - ``empty``: return an empty mask
+    """
     H, W = mask.shape[:2]
     px = int(max(0, min(W - 1, x)))
     py = int(max(0, min(H - 1, y)))
@@ -31,8 +43,66 @@ def component_at_point(mask: np.ndarray, x: int, y: int) -> np.ndarray:
         return mask.copy()
     label = int(labels[py, px])
     if label == 0:
+        if fallback == "empty":
+            return np.zeros_like(mask, dtype=bool)
+        if fallback == "nearest":
+            ys, xs = np.where(labels > 0)
+            if len(xs) == 0:
+                return np.zeros_like(mask, dtype=bool)
+            nearest = int(np.argmin((xs - px) ** 2 + (ys - py) ** 2))
+            return (labels == int(labels[ys[nearest], xs[nearest]])).astype(bool)
         return largest_component(mask)
     return (labels == label).astype(bool)
+
+
+def isolate_clicked_object(mask: np.ndarray, x: int, y: int) -> np.ndarray:
+    """Keep a single object under the click, even if SAM fused neighbours.
+
+    Takes the connected component at ``(x, y)``. If that blob still looks like
+    several objects joined by a thin bridge, split with a distance-transform
+    watershed and keep only the basin that contains the click.
+    """
+    clicked = component_at_point(mask, x, y, fallback="nearest")
+    if not clicked.any():
+        return clicked
+
+    u8 = clicked.astype(np.uint8) * 255
+    dist = cv2.distanceTransform(u8, cv2.DIST_L2, 5)
+    dmax = float(dist.max())
+    if dmax < 4.0:
+        return clicked
+
+    sure = (dist > 0.40 * dmax).astype(np.uint8)
+    n, sure_labels, stats, _ = cv2.connectedComponentsWithStats(
+        sure, connectivity=8
+    )
+    if n <= 2:
+        return clicked
+
+    fg_areas = stats[1:, cv2.CC_STAT_AREA]
+    if fg_areas.size < 2:
+        return clicked
+    second = float(np.sort(fg_areas)[-2])
+    mask_area = float(max(int(clicked.sum()), 1))
+    # Two comparable cores → likely two objects, not lobes of one leaf
+    if second < 0.12 * mask_area:
+        return clicked
+
+    unknown = (u8 > 0) & (sure == 0)
+    markers = sure_labels.astype(np.int32) + 1
+    markers[unknown] = 0
+    vis = cv2.cvtColor(u8, cv2.COLOR_GRAY2BGR)
+    cv2.watershed(vis, markers)
+    H, W = clicked.shape[:2]
+    px = int(max(0, min(W - 1, x)))
+    py = int(max(0, min(H - 1, y)))
+    lab = int(markers[py, px])
+    if lab <= 1:
+        return clicked
+    split = markers == lab
+    if int(split.sum()) < 0.08 * mask_area:
+        return clicked
+    return split.astype(bool)
 
 
 def largest_component_centroid(mask: np.ndarray) -> tuple[int, int]:
